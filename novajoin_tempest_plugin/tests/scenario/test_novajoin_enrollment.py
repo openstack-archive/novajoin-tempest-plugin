@@ -45,7 +45,7 @@ class EnrollmentTest(novajoin_manager.NovajoinScenarioTest):
         * Add metadata to register and create some cert entries
         * Validate that the certs for those entries are issued and
           tracked
-        * Validate that the service entries arer removed when the
+        * Validate that the service entries are removed when the
           instance is deleted.
         * Validate that the certs issued have been revoked.
     """
@@ -63,6 +63,9 @@ class EnrollmentTest(novajoin_manager.NovajoinScenarioTest):
         security_group = self._create_security_group()
         # TODO(alee) Add metadata for ipa_enroll=True
         # TODO(alee) Add metadata for service to be created/joined
+
+        service = "random service to be added"
+        cn = "cn of random service certificate"
         server = self.create_server(
             name='passed_metadata_server',
             image_id=self.no_metadata_img_uuid,
@@ -72,6 +75,8 @@ class EnrollmentTest(novajoin_manager.NovajoinScenarioTest):
         )
         self.verify_registered_host(server, keypair, service, cn)
         self.delete_server(server)
+
+        serial = "serial number of random service certificate"
         self.verify_unregistered_host(server, service, serial)
 
     @decorators.idempotent_id('cbc752ed-b716-4727-910f-956ccf965723')
@@ -80,27 +85,32 @@ class EnrollmentTest(novajoin_manager.NovajoinScenarioTest):
         LOG.info("Creating keypair and security group")
         keypair = self.create_keypair()
         security_group = self._create_security_group()
+
         # TODO(alee) Add metadata for service to be created/joined
+        service = "random service to be added"
+        cn = "cn of random service certificate"
+
         server = self.create_server(
-            name='signed_img_server',
-            image_id=metadata_img_uuid,
+            name='img_with_metadata_server',
+            image_id=self.metadata_img_uuid,
             key_name=keypair['name'],
             security_groups=[{'name': security_group['name']}],
             wait_until='ACTIVE'
         )
         self.verify_registered_host(server, keypair, service, cn)
         self.delete_server(server)
+
+        serial = "serial number of cert for random service"
         self.verify_unregistered_host(server, service, serial)
 
     def verify_registered_host(self, server, keypair, service, cn):
         self.verify_host_registered_with_ipa(server)
         self.verify_host_has_keytab(server)
-        self.verify_host_is_ipaclient(server)
+        self.verify_host_is_ipaclient(server, keypair)
         self.verify_service_created(service, server)
-        self.verify_cert_tracked(self, host, keypair, cn)
-    
+        self.verify_cert_tracked(server, keypair, cn)
+
     def verify_unregistered_host(self, server, service, serial):
         self.verify_host_not_registered_with_ipa(server)
         self.verify_service_deleted(service, server)
         self.verify_cert_revoked(serial)
-

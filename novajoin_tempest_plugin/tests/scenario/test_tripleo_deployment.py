@@ -12,12 +12,9 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
+from novajoin_tempest_plugin.tests.scenario import novajoin_manager
 from oslo_log import log as logging
 from tempest import config
-from tempest.lib import decorators
-from tempest import test
-
-from novajoin_tempest_plugin.tests.scenario import novajoin_manager
 
 CONF = config.CONF
 LOG = logging.getLogger(__name__)

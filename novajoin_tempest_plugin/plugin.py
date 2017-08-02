@@ -16,10 +16,7 @@
 
 import os
 
-from tempest import config
 from tempest.test_discover import plugins
-
-from novajoin_tempest_plugin import config as project_config
 
 
 class NovajoinTempestPlugin(plugins.TempestPlugin):

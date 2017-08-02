@@ -15,4 +15,3 @@ import pbr.version
 
 __version__ = pbr.version.VersionInfo(
     'novajoin_tempest_plugin').version_string()
-

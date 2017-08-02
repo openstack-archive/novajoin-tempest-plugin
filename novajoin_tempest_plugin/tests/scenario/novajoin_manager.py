@@ -13,11 +13,6 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-import base64
-from datetime import datetime
-from datetime import timedelta
-import os
-
 from oslo_log import log as logging
 from tempest import config
 
@@ -45,8 +40,8 @@ class NovajoinScenarioTest(mgr.ScenarioTest):
     def setup_clients(cls):
         super(NovajoinScenarioTest, cls).setup_clients()
 
-        os = getattr(cls, 'os_%s' % cls.credentials[0])
-        os_adm = getattr(cls, 'os_%s' % cls.credentials[1])
+        # os = getattr(cls, 'os_%s' % cls.credentials[0])
+        # os_adm = getattr(cls, 'os_%s' % cls.credentials[1])
         # set up ipa client
 
     def verify_host_registered_with_ipa(self, host):
@@ -72,7 +67,7 @@ class NovajoinScenarioTest(mgr.ScenarioTest):
         # needed for the triple-O tests
         pass
 
-    def verify_service_deleted(self, servicei, host):
+    def verify_service_deleted(self, service, host):
         # verify service entry does not exist
         pass
 
@@ -82,6 +77,6 @@ class NovajoinScenarioTest(mgr.ScenarioTest):
         # being tracked
         pass
 
-   def verify_cert_revoked(self, serial):
-       # verify that the given certificate has been revoked
-       pass
+    def verify_cert_revoked(self, serial):
+        # verify that the given certificate has been revoked
+        pass

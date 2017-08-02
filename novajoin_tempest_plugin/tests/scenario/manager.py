@@ -393,10 +393,10 @@ class ScenarioTest(tempest.test.BaseTestCase):
                 network = getattr(net_creds, 'network', None)
                 addresses = (server['addresses'][network['name']]
                              if network else [])
-            for address in addresses:
-                if (address['version'] == CONF.validation.ip_version_for_ssh
-                        and address['OS-EXT-IPS:type'] == 'fixed'):
-                    return address['addr']
+            for addr in addresses:
+                if (addr['version'] == CONF.validation.ip_version_for_ssh and
+                        addr['OS-EXT-IPS:type'] == 'fixed'):
+                    return addr['addr']
             raise exceptions.ServerUnreachable(server_id=server['id'])
         else:
             raise lib_exc.InvalidConfiguration()
@@ -453,7 +453,7 @@ class ScenarioTest(tempest.test.BaseTestCase):
             sg for sg in list(client.list_security_groups().values())[0]
             if sg['tenant_id'] == tenant_id and sg['name'] == 'default'
         ]
-        msg = "No default security group for tenant %s." % (tenant_id)
+        msg = "No default security group for tenant %s." % tenant_id
         self.assertGreater(len(sgs), 0, msg)
         return sgs[0]
 
