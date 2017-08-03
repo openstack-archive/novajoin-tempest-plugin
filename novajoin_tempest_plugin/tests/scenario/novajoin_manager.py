@@ -13,15 +13,11 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-from oslo_log import log as logging
-from tempest import config
 
-from novajoin_tempest_plugin import clients
-from novajoin_tempest_plugin.tests.scenario import manager as mgr
-
-CONF = config.CONF
-LOG = logging.getLogger(__name__)
-
+from tempest import clients
+from tempest.scenario import manager as mgr
+from tempest.lib.common import ssh
+import tempest.test
 
 class NovajoinScenarioTest(mgr.ScenarioTest):
 
@@ -30,11 +26,18 @@ class NovajoinScenarioTest(mgr.ScenarioTest):
 
     def setUp(self):
         super(NovajoinScenarioTest, self).setUp()
+        ssh_host = CONF.tripleo.undercloud_hostname
+        ssh_user = CONF.stress.target_ssh_user
+        ssh_key = CONF.stress.target_private_key_path
+        ssh_client = ssh.Client(ssh_host, ssh_user, key_filename=ssh_key)
 
     @classmethod
     def skip_checks(cls):
-        # check if novajoin is enabled?
-        pass
+        super(NovajoinScenarioTest, cls).skip_checks()
+	cmd = ('source ~/stackrc;openstack service list | grep novajoin')
+        novajoin_enabled = ssh_client.exec_command(cmd)
+        if not novajoin_enabled:
+            raise cls.skipException("Novajoin is not enabled")
 
     @classmethod
     def setup_clients(cls):
@@ -47,36 +50,65 @@ class NovajoinScenarioTest(mgr.ScenarioTest):
     def verify_host_registered_with_ipa(self, host):
         # check if specified host is registered with ipa
         # basically doing a host-show
-        pass
-
-    def verify_host_not_registered_with_ipa(self, host):
-        # check if specified host is not registered with ipa
-        pass
+        
+        cmd = 'ipa host-show {hostname}'.format(hostname = host)
+        result = ssh_client.exec_command(cmd)
+        if host in result:
+            return true
+        return false
 
     def verify_host_has_keytab(self, host):
         # check if specified host entry has a keytab
-        pass
 
-    def verify_host_is_ipaclient(self, host, keypair):
-        # ssh into the host
-        # do test like "getent passwd admin" or similar
-        pass
+        cmd = 'ipa host-show {hostname} | grep Keytab'.format(hostname = host)
+        result = ssh_client.exec_command(cmd)
+        if 'True' in result:
+            return true
+        return false
 
-    def verify_service_created(self, service, host):
+    def verify_service_exists(self, service, host):
         # verify service exists for host on ipa server
         # needed for the triple-O tests
-        pass
 
-    def verify_service_deleted(self, service, host):
-        # verify service entry does not exist
-        pass
+	cmd = 'ipa service-show {servicename}/{hostname}'.format(
+                    servicename=service, hostname=host
+                )
+        result = ssh_client.exec_command(cmd)
+        if service in result:
+            return true
+        return false
 
-    def verify_cert_tracked(self, host, keypair, cn):
+    def verify_host_is_ipaclient(self, host, user, keypair):
+        # ssh into the host
+        # do test like "getent passwd admin" or similar
+        cmd = 'ssh -i {key} {username}@{hostname} -C "id admin"'.format(
+                    key=keypair, username=user, hostname=host
+                )
+        result = ssh_client.exec_command(cmd)
+        vars = ['uid', 'gid', 'groups']
+        if all(x in result for x in vars):
+          return true
+        return false
+
+    def verify_cert_tracked(self, host, user, keypair, cn):
         # ssh into the host with the provided keypair
         # run certmonger command to ensure cert is
         # being tracked
-        pass
+
+        cmd = 'ssh -i {key} {username}@{hostname} -C "sudo getcert list"'.format(
+                    key=keypair, username=user, hostname=host
+                )
+        result = ssh_client.exec_command(cmd)
+        if cn in result:
+          return true
+        return false
 
     def verify_cert_revoked(self, serial):
         # verify that the given certificate has been revoked
-        pass
+        cmd = 'ipa cert-show {serial} |grep Revoked'.format(
+                  serial=serial
+               )
+        result = ssh_client.exec_command(cmd)
+        if 'True' in result:
+            return true
+        return false
