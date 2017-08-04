@@ -12,13 +12,13 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
+import os
 
 from oslo_log import log as logging
 from tempest import config
 
 from tempest import clients
 from tempest.scenario import manager as mgr
-from tempest.lib.common import ssh
 
 CONF = config.CONF
 LOG = logging.getLogger(__name__)
@@ -30,55 +30,42 @@ class NovajoinScenarioTest(mgr.ScenarioTest):
 
     def setUp(self):
         super(NovajoinScenarioTest, self).setUp()
-        ssh_host = CONF.tripleo.undercloud_hostname
-        ssh_user = CONF.stress.target_ssh_user
-        ssh_key = CONF.stress.target_private_key_path
-        self.ssh_client = ssh.Client(ssh_host, ssh_user, key_filename=ssh_key)
 
     @classmethod
     def skip_checks(cls):
         super(NovajoinScenarioTest, cls).skip_checks()
-
-        cmd = 'source ~/stackrc;openstack service list | grep novajoin'
-        novajoin_enabled = ssh_client.exec_command(cmd)
-        if not novajoin_enabled:
+        if not CONF.service_available.novajoin:
             raise cls.skipException("Novajoin is not enabled")
 
     @classmethod
     def setup_clients(cls):
         super(NovajoinScenarioTest, cls).setup_clients()
-        # os = getattr(cls, 'os_%s' % cls.credentials[0])
-        # os_adm = getattr(cls, 'os_%s' % cls.credentials[1])
-        # set up ipa client
+        cls.ipa_client = os.ipa_v4.IPAClient
 
     def verify_host_registered_with_ipa(self, host):
         # check if specified host is registered with ipa
         # basically doing a host-show
-
-        cmd = 'ipa host-show {hostname}'.format(hostname=host)
-        result = self.ssh_client.exec_command(cmd)
-        if host in result:
+        result = self.ipa_client.find_host(host)
+        if result['count'] > 0:
             return True
         return False
 
     def verify_host_has_keytab(self, host):
         # check if specified host entry has a keytab
-
-        cmd = 'ipa host-show {hostname} | grep Keytab'.format(hostname=host)
-        result = self.ssh_client.exec_command(cmd)
-        if 'True' in result:
+        result = self.ipa_client.show_host(host)['result']
+        keytab_present = result['Keytab']
+        if 'True' in keytab_present:
             return True
         return False
 
     def verify_service_exists(self, service, host):
         # verify service exists for host on ipa server
         # needed for the triple-O tests
-
-        cmd = 'ipa service-show {servicename}/{hostname}'.format(
+        service_principal = '{servicename}/{hostname}'.format(
             servicename=service, hostname=host
         )
-        result = self.ssh_client.exec_command(cmd)
-        if service in result:
+        result = self.ipa_client.find_service(service_principal)
+        if result['count'] > 0:
             return True
         return False
 
@@ -110,10 +97,8 @@ class NovajoinScenarioTest(mgr.ScenarioTest):
 
     def verify_cert_revoked(self, serial):
         # verify that the given certificate has been revoked
-        cmd = 'ipa cert-show {serial} |grep Revoked'.format(
-            serial=serial
-        )
-        result = self.ssh_client.exec_command(cmd)
-        if 'True' in result:
+        result = self.ipa_client.show_cert(serial)['result']
+        is_revoked = result['Revoked']
+        if 'True' in is_revoked:
             return True
         return False

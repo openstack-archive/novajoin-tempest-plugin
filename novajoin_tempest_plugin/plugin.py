@@ -41,3 +41,14 @@ class NovajoinTempestPlugin(plugins.TempestPlugin):
     def get_opt_lists(self):
         return [('service_available', [project_config.service_option]),
                 (project_config.ipa_group.name, project_config.IpaGroup)]
+
+    def get_service_clients(self):
+        params = {
+            'name': 'ipa_v4',
+            'service_version': 'ipa.v4',
+            'module_path': 'novajoin_tempest_plugin.services.ipa',
+            'client_names': [
+                'IPAClient',
+            ],
+        }
+        return [params]
