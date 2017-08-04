@@ -18,6 +18,8 @@ import os
 
 from tempest.test_discover import plugins
 
+from novajoin_tempest_plugin import config as project_config
+
 
 class NovajoinTempestPlugin(plugins.TempestPlugin):
     def load_tests(self):
@@ -28,7 +30,14 @@ class NovajoinTempestPlugin(plugins.TempestPlugin):
         return full_test_dir, base_path
 
     def register_opts(self, conf):
-        pass
+        conf.register_opt(project_config.service_option,
+                          group='service_available')
+
+        # Register ipa connection options
+        conf.register_group(project_config.ipa_group)
+        conf.register_opts(project_config.IpaGroup,
+                           project_config.ipa_group)
 
     def get_opt_lists(self):
-        pass
+        return [('service_available', [project_config.service_option]),
+                (project_config.ipa_group.name, project_config.IpaGroup)]
