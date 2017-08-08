@@ -12,22 +12,16 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
-import os
-
 from oslo_log import log as logging
 from tempest import config
+from tempest import test
 
-from tempest import clients
-from tempest.scenario import manager as mgr
-
+from novajoin_tempest_plugin.ipa import ipa_client
 CONF = config.CONF
 LOG = logging.getLogger(__name__)
 
 
-class NovajoinScenarioTest(mgr.ScenarioTest):
-    credentials = ('primary', 'admin')
-    manager = clients.Manager(credentials)
-
+class NovajoinScenarioTest(test.BaseTestCase):
     def setUp(self):
         super(NovajoinScenarioTest, self).setUp()
 
@@ -40,7 +34,7 @@ class NovajoinScenarioTest(mgr.ScenarioTest):
     @classmethod
     def setup_clients(cls):
         super(NovajoinScenarioTest, cls).setup_clients()
-        cls.ipa_client = os.ipa_v4.IPAClient
+        cls.ipa_client = ipa_client.IPAClient()
 
     def verify_host_registered_with_ipa(self, host):
         # check if specified host is registered with ipa

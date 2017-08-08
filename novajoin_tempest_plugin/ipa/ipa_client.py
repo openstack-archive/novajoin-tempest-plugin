@@ -46,12 +46,18 @@ class IPABase(object):
             self.ntries = 1
         if not ipalib_imported:
             return
+
+        try:
+            self.keytab = CONF.keytab
+        except cfg.NoSuchOptError:
+            self.keytab = '/etc/novajoin/krb5.keytab'
+
         self.ccache = "MEMORY:" + str(uuid.uuid4())
         os.environ['KRB5CCNAME'] = self.ccache
         if self._ipa_client_configured() and not api.isdone('finalize'):
             (hostname, realm) = self.get_host_and_realm()
             kinit_keytab(str('nova/%s@%s' % (hostname, realm)),
-                         CONF.keytab, self.ccache)
+                         self.keytab, self.ccache)
             api.bootstrap(context='novajoin')
             api.finalize()
         self.batch_args = list()
@@ -103,7 +109,7 @@ class IPABase(object):
                 try:
                     kinit_keytab(str('nova/%s@%s' %
                                  (api.env.host, api.env.realm)),
-                                 CONF.keytab,
+                                 self.keytab,
                                  self.ccache)
                 except GSSError as e:
                     LOG.debug("kinit failed: %s", e)
