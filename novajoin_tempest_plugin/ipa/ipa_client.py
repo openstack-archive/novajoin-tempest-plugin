@@ -54,10 +54,9 @@ class IPABase(object):
 
         self.ccache = "MEMORY:" + str(uuid.uuid4())
         os.environ['KRB5CCNAME'] = self.ccache
+        os.environ['KRB5_CLIENT_KTNAME'] = '/home/stack/krb5.keytab'
         if self._ipa_client_configured() and not api.isdone('finalize'):
             (hostname, realm) = self.get_host_and_realm()
-            kinit_keytab(str('nova/%s@%s' % (hostname, realm)),
-                         self.keytab, self.ccache)
             api.bootstrap(context='novajoin')
             api.finalize()
         self.batch_args = list()
@@ -159,22 +158,32 @@ class IPABase(object):
 class IPAClient(IPABase):
 
     def find_host(self, hostname):
-        params = [hostname]
+        params = [unicode(hostname)]
         return self._call_ipa('host_find', *params)
 
     def show_host(self, hostname):
-        params = [hostname]
-        return self._call_ipa('host-show', *params)
+        params = [unicode(hostname)]
+        return self._call_ipa('host_show', *params)
 
     def find_service(self, service_principal):
-        params = [service_principal]
+        params = [unicode(service_principal)]
         service_args = {}
         return self._call_ipa('service_find', *params, **service_args)
 
     def show_service(self, service_principal):
-        params = [service_principal]
+        params = [unicode(service_principal)]
         service_args = {}
         return self._call_ipa('service_show', *params, **service_args)
+
+    def get_service_cert(self, service_principal):
+        params = [unicode(service_principal)]
+        service_args = {}
+        result = self._call_ipa('service_find', *params, **service_args)
+        serviceresult = result['result'][0]
+        if 'serial_number' in serviceresult:
+            return serviceresult['serial_number']
+        else:
+            return None
 
     def service_managed_by_host(self, service_principal, host):
         """Return True if service is managed by specified host"""
