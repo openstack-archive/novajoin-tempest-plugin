@@ -91,14 +91,19 @@ class TripleOTest(novajoin_manager.NovajoinScenarioTest):
             'undercloud.{domain}'.format(domain=DOMAIN),
             REALM)
 
-        for (host, services) in SERVICES:
-            subhost = '{host}.{domain}'
+        for (host, services) in SERVICES.items():
+            subhost = '{host}.{domain}'.format(host=host, domain=DOMAIN)
             self.verify_host_registered_with_ipa(subhost)
 
             for service in services:
                 self.verify_service_created(service, subhost, REALM)
                 serial = self.get_service_cert(service, subhost, REALM)
-                self.assertTrue(serial is not None)
+
+                if (service == 'mysql' and
+                        host == 'overcloud-controller-0.internalapi'):
+                    pass
+                else:
+                    self.assertTrue(serial is not None)
 
     def test_verify_service_certs_are_tracked(self):
         # TODO(alee) get correct overcloud_ip
@@ -117,4 +122,3 @@ class TripleOTest(novajoin_manager.NovajoinScenarioTest):
             overcloud_ip,
             'heat-admin'
         )
-
