@@ -19,6 +19,40 @@ from tempest import config
 CONF = config.CONF
 LOG = logging.getLogger(__name__)
 
+DOMAIN = 'tripleodomain.example.com'
+REALM = 'TRIPLEODOMAIN.EXAMPLE.COM'
+
+HOSTS = [
+    'undercloud',
+    'overcloud-controller-0'
+]
+
+SERVICES = {
+    'overcloud-controller-0.ctlplane': ['HTTP'],
+    'overcloud-controller-0.internalapi': ['HTTP', 'mysql', 'rabbitmq'],
+    'overcloud-controller-0.storage': ['HTTP'],
+    'overcloud-controller-0.storagemgmt': ['HTTP'],
+    'overcloud.ctlplane': ['haproxy'],
+    'overcloud.internalapi': ['haproxy', 'mysql'],
+    'overcloud.storage': ['haproxy'],
+    'overcloud.storagemgmt': ['haproxy'],
+    'overcloud': ['haproxy']
+}
+
+CONTROLLER_CERT_TAGS = [
+    'mysql',
+    'rabbitmq',
+    'httpd-ctlplane',
+    'httpd-internal_api',
+    'httpd-storage',
+    'httpd-storage_mgmt',
+    'haproxy-ctlplane-cert',
+    'haproxy-external-cert',
+    'haproxy-internal_api-cert',
+    'haproxy-storage-cert',
+    'haproxy-storage_mgmt-cert'
+]
+
 
 class TripleOTest(novajoin_manager.NovajoinScenarioTest):
 
@@ -44,3 +78,43 @@ class TripleOTest(novajoin_manager.NovajoinScenarioTest):
     def skip_checks(cls):
         super(TripleOTest, cls).skip_checks()
         pass
+
+    def test_hosts_are_registered(self):
+        for host in HOSTS:
+            hostname = "{host}.{domain}".format(host=host, domain=DOMAIN)
+            self.verify_host_registered_with_ipa(hostname)
+            self.verify_host_has_keytab(hostname)
+
+    def test_services_are_created(self):
+        self.verify_service_created(
+            'nova',
+            'undercloud.{domain}'.format(domain=DOMAIN),
+            REALM)
+
+        for (host, services) in SERVICES:
+            subhost = '{host}.{domain}'
+            self.verify_host_registered_with_ipa(subhost)
+
+            for service in services:
+                self.verify_service_created(service, subhost, REALM)
+                serial = self.get_service_cert(service, subhost, REALM)
+                self.assertTrue(serial is not None)
+
+    def test_verify_service_certs_are_tracked(self):
+        # TODO(alee) get correct overcloud_ip
+        overcloud_ip = '192.168.24.17'
+        for tag in CONTROLLER_CERT_TAGS:
+            self.verify_overcloud_cert_tracked(
+                overcloud_ip,
+                'heat-admin',
+                tag
+            )
+
+    def test_overcloud_is_ipaclient(self):
+        # TODO(alee) get correct overcloud_ip
+        overcloud_ip = '192.168.24.17'
+        self.verify_overcloud_host_is_ipaclient(
+            overcloud_ip,
+            'heat-admin'
+        )
+
