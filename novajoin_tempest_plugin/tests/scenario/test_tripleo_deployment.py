@@ -27,18 +27,6 @@ HOSTS = [
     'overcloud-controller-0'
 ]
 
-SERVICES = {
-    'overcloud-controller-0.ctlplane': ['HTTP'],
-    'overcloud-controller-0.internalapi': ['HTTP', 'mysql', 'rabbitmq'],
-    'overcloud-controller-0.storage': ['HTTP'],
-    'overcloud-controller-0.storagemgmt': ['HTTP'],
-    'overcloud.ctlplane': ['haproxy'],
-    'overcloud.internalapi': ['haproxy', 'mysql'],
-    'overcloud.storage': ['haproxy'],
-    'overcloud.storagemgmt': ['haproxy'],
-    'overcloud': ['haproxy']
-}
-
 CONTROLLER_CERT_TAGS = [
     'mysql',
     'rabbitmq',
@@ -102,26 +90,6 @@ class TripleOTest(novajoin_manager.NovajoinScenarioTest):
             self.verify_host_registered_with_ipa(hostname)
             self.verify_host_has_keytab(hostname)
 
-    def test_services_are_created(self):
-        self.verify_service_created(
-            'nova',
-            'undercloud.{domain}'.format(domain=DOMAIN),
-            REALM)
-
-        for (host, services) in SERVICES.items():
-            subhost = '{host}.{domain}'.format(host=host, domain=DOMAIN)
-            self.verify_host_registered_with_ipa(subhost)
-
-            for service in services:
-                self.verify_service_created(service, subhost, REALM)
-                serial = self.get_service_cert(service, subhost, REALM)
-
-                if (service == 'mysql' and
-                        host == 'overcloud-controller-0.internalapi'):
-                    pass
-                else:
-                    self.assertTrue(serial is not None)
-
     def test_verify_compact_services_created(self):
         # TODO(alee) Get the compact services from the host metadata
         for host in CONTROLLERS:
@@ -164,7 +132,9 @@ class TripleOTest(novajoin_manager.NovajoinScenarioTest):
         self.verify_service_created(service, host, realm)
 
         serial = self.get_service_cert(service, host, realm)
-        if service == 'mysql' and host == 'overcloud-controller-0.internalapi':
+        if (service == 'mysql' and host ==
+                'overcloud-controller-0.internalapi.{domain}'.format(
+                domain=DOMAIN)):
             pass
         else:
             self.assertTrue(serial is not None)
@@ -175,4 +145,3 @@ class TripleOTest(novajoin_manager.NovajoinScenarioTest):
             service = principal.split('/', 1)[0]
             host = principal.split('/', 1)[1]
             self.verify_service(service, host, REALM)
-
