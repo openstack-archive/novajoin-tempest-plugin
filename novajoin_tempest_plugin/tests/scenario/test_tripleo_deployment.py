@@ -53,6 +53,23 @@ CONTROLLER_CERT_TAGS = [
     'haproxy-storage_mgmt-cert'
 ]
 
+CONTROLLERS = ['overcloud-controller-0']
+
+COMPACT_SERVICES = {
+    "HTTP": ["ctlplane", "internalapi", "storagemgmt", "storage"],
+    "rabbitmq": ["internalapi"],
+    "mysql": ["internalapi"]
+}
+
+MANAGED_SERVICES = [
+    'haproxy/overcloud.ctlplane.tripleodomain.example.com',
+    'haproxy/overcloud.tripleodomain.example.com',
+    'haproxy/overcloud.internalapi.tripleodomain.example.com',
+    'haproxy/overcloud.storage.tripleodomain.example.com',
+    'haproxy/overcloud.storagemgmt.tripleodomain.example.com',
+    'mysql/overcloud.internalapi.tripleodomain.example.com'
+]
+
 
 class TripleOTest(novajoin_manager.NovajoinScenarioTest):
 
@@ -105,6 +122,17 @@ class TripleOTest(novajoin_manager.NovajoinScenarioTest):
                 else:
                     self.assertTrue(serial is not None)
 
+    def test_verify_compact_services_created(self):
+        # TODO(alee) Get the compact services from the host metadata
+        for host in CONTROLLERS:
+            self.verify_controller_compact_services(host, COMPACT_SERVICES)
+
+    def test_verify_controller_managed_services(self):
+        # TODO(alee) Get the managed services from the host metadata
+        for host in CONTROLLERS:
+            print(host)
+            self.verify_controller_managed_services(MANAGED_SERVICES)
+
     def test_verify_service_certs_are_tracked(self):
         # TODO(alee) get correct overcloud_ip
         overcloud_ip = '192.168.24.17'
@@ -122,3 +150,29 @@ class TripleOTest(novajoin_manager.NovajoinScenarioTest):
             overcloud_ip,
             'heat-admin'
         )
+
+    def verify_controller_compact_services(self, host, compact_services):
+        for (service, networks) in compact_services.items():
+            for network in networks:
+                subhost = '{host}.{network}.{domain}'.format(
+                    host=host, network=network, domain=DOMAIN
+                )
+                self.verify_service(service, subhost, REALM)
+
+    def verify_service(self, service, host, realm):
+        self.verify_host_registered_with_ipa(host)
+        self.verify_service_created(service, host, realm)
+
+        serial = self.get_service_cert(service, host, realm)
+        if service == 'mysql' and host == 'overcloud-controller-0.internalapi':
+            pass
+        else:
+            self.assertTrue(serial is not None)
+        self.verify_service_managed_by_host(service, host, realm)
+
+    def verify_controller_managed_services(self, managed_services):
+        for principal in managed_services:
+            service = principal.split('/', 1)[0]
+            host = principal.split('/', 1)[1]
+            self.verify_service(service, host, REALM)
+

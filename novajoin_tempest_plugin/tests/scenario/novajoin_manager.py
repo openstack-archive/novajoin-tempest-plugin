@@ -66,6 +66,10 @@ class NovajoinScenarioTest(manager.ScenarioTest):
         result = self.ipa_client.find_service(service_principal)
         self.assertTrue(result['count'] > 0)
 
+    def verify_service_managed_by_host(self, service, host, realm):
+        # TODO(alee) Implement this using service-show
+        pass
+
     def verify_service_deleted(self, service, host, realm):
         service_principal = '{servicename}/{hostname}@{realm}'.format(
             servicename=service, hostname=host, realm=realm
