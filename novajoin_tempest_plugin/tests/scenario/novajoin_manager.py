@@ -93,7 +93,7 @@ class NovajoinScenarioTest(manager.ScenarioTest):
 
     def verify_overcloud_host_is_ipaclient(self, hostip, user):
         keypair = '/home/stack/.ssh/id_rsa'
-        cmd = ['ssh', '-i', keypair, 
+        cmd = ['ssh', '-i', keypair,
                '{user}@{hostip}'.format(user=user, hostip=hostip),
                '-C', 'id admin']
 
@@ -121,3 +121,31 @@ class NovajoinScenarioTest(manager.ScenarioTest):
         # verify that the given certificate has been revoked
         result = self.ipa_client.show_cert(serial)['result']
         self.assertTrue(result['revoked'])
+
+    def verify_controller_compact_services(self, services, host,
+                                           domain, realm):
+        for (service, networks) in services.items():
+            for network in networks:
+                subhost = '{host}.{network}.{domain}'.format(
+                    host=host, network=network, domain=domain
+                )
+                self.verify_service(service, subhost, realm, domain)
+
+    def verify_service(self, service, host, realm, domain):
+        self.verify_host_registered_with_ipa(host)
+        self.verify_service_created(service, host, realm)
+
+        serial = self.get_service_cert(service, host, realm)
+        if (service == 'mysql' and host ==
+                'overcloud-controller-0.internalapi.{domain}'.format(
+                domain=domain)):
+            pass
+        else:
+            self.assertTrue(serial is not None)
+        self.verify_service_managed_by_host(service, host, realm)
+
+    def verify_controller_managed_services(self, services, realm, domain):
+        for principal in services:
+            service = principal.split('/', 1)[0]
+            host = principal.split('/', 1)[1]
+            self.verify_service(service, host, realm, domain)
