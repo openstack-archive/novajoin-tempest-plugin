@@ -11,6 +11,7 @@
 # WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 # License for the specific language governing permissions and limitations
 # under the License.
+import ast
 
 from novajoin_tempest_plugin.tests.scenario import novajoin_manager
 from oslo_log import log as logging
@@ -43,21 +44,6 @@ CONTROLLER_CERT_TAGS = [
 
 CONTROLLERS = ['overcloud-controller-0']
 
-COMPACT_SERVICES = {
-    "HTTP": ["ctlplane", "internalapi", "storagemgmt", "storage"],
-    "rabbitmq": ["internalapi"],
-    "mysql": ["internalapi"]
-}
-
-MANAGED_SERVICES = [
-    'haproxy/overcloud.ctlplane.tripleodomain.example.com',
-    'haproxy/overcloud.tripleodomain.example.com',
-    'haproxy/overcloud.internalapi.tripleodomain.example.com',
-    'haproxy/overcloud.storage.tripleodomain.example.com',
-    'haproxy/overcloud.storagemgmt.tripleodomain.example.com',
-    'mysql/overcloud.internalapi.tripleodomain.example.com'
-]
-
 
 class TripleOTest(novajoin_manager.NovajoinScenarioTest):
 
@@ -84,25 +70,49 @@ class TripleOTest(novajoin_manager.NovajoinScenarioTest):
         super(TripleOTest, cls).skip_checks()
         pass
 
+    def _get_server_id(self, name):
+        # params = {'name': name}
+        params = {'all_tenants': '', 'name': name}
+        resp = self.servers_client.list_servers(detail=True, **params)
+        print(resp)
+        links = resp['servers'][0]['links']
+        for link in links:
+            if link['rel'] == 'self':
+                href = link['href']
+        return href.split('/')[-1]
+
     def test_hosts_are_registered(self):
         for host in HOSTS:
             hostname = "{host}.{domain}".format(host=host, domain=DOMAIN)
             self.verify_host_registered_with_ipa(hostname)
             self.verify_host_has_keytab(hostname)
+        keypair = self.create_keypair()
+        print(keypair)
 
     def test_verify_compact_services_created(self):
-        # TODO(alee) Get the compact services from the host metadata
         for host in CONTROLLERS:
-            self.verify_controller_compact_services(host, COMPACT_SERVICES)
+            metadata = self.servers_client.list_server_metadata(
+                self._get_server_id(host))['metadata']
+            services = metadata['compact_services']
+            compact_services = ast.literal_eval(services)
+            print(compact_services)
+            self.verify_controller_compact_services(host, compact_services)
 
     def test_verify_controller_managed_services(self):
-        # TODO(alee) Get the managed services from the host metadata
         for host in CONTROLLERS:
-            print(host)
-            self.verify_controller_managed_services(MANAGED_SERVICES)
+            metadata = self.servers_client.list_server_metadata(
+                self._get_server_id(host))['metadata']
+            managed_services = [metadata[key] for key in metadata.keys()
+                                if key.startswith('managed_service_')]
+            print(managed_services)
+            self.verify_controller_managed_services(managed_services)
 
     def test_verify_service_certs_are_tracked(self):
         # TODO(alee) get correct overcloud_ip
+        for host in CONTROLLERS:
+            server_id = self._get_server_id(host)
+            print(self.get_server_ip(server_id))
+
         overcloud_ip = '192.168.24.17'
         for tag in CONTROLLER_CERT_TAGS:
             self.verify_overcloud_cert_tracked(
