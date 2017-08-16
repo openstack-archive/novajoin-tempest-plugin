@@ -95,11 +95,12 @@ class TripleOTest(novajoin_manager.NovajoinScenarioTest):
             services = metadata['compact_services']
             compact_services = ast.literal_eval(services)
             print(compact_services)
-            self.verify_controller_compact_services(
+            self.verify_compact_services(
                 services=compact_services,
                 host=host,
                 realm=REALM,
-                domain=DOMAIN
+                domain=DOMAIN,
+                verify_certs=True
             )
 
     def test_verify_controller_managed_services(self):
@@ -109,10 +110,11 @@ class TripleOTest(novajoin_manager.NovajoinScenarioTest):
             managed_services = [metadata[key] for key in metadata.keys()
                                 if key.startswith('managed_service_')]
             print(managed_services)
-            self.verify_controller_managed_services(
+            self.verify_managed_services(
                 services=managed_services,
                 realm=REALM,
-                domain=DOMAIN)
+                domain=DOMAIN,
+                verify_certs=True)
 
     def test_verify_service_certs_are_tracked(self):
         # TODO(alee) get correct overcloud_ip

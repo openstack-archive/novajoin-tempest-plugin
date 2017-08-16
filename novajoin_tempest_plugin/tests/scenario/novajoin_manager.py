@@ -12,7 +12,9 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
+import exceptions
 import subprocess
+import time
 
 from oslo_log import log as logging
 from tempest import config
@@ -57,7 +59,18 @@ class NovajoinScenarioTest(manager.ScenarioTest):
 
     def verify_host_has_keytab(self, host):
         result = self.ipa_client.show_host(host)['result']
-        self.assertTrue(result['has_keytab'])
+        start = int(time.time())
+        keytab_status = result['has_keytab']
+        timeout = 300
+        while not keytab_status:
+            time.sleep(30)
+            result = self.ipa_client.show_host(host)['result']
+            keytab_status = result['has_keytab']
+            if int(time.time()) - start >= 300:
+                message = ('Keytab failed to reach TRUE status '
+                           'within %s seconds' % (timeout))
+                raise exceptions.TimeoutException(message)
+        self.assertTrue(keytab_status)
 
     def verify_service_created(self, service, host, realm):
         service_principal = '{servicename}/{hostname}@{realm}'.format(
@@ -122,19 +135,29 @@ class NovajoinScenarioTest(manager.ScenarioTest):
         result = self.ipa_client.show_cert(serial)['result']
         self.assertTrue(result['revoked'])
 
-    def verify_controller_compact_services(self, services, host,
-                                           domain, realm):
+    def verify_compact_services(self, services, host,
+                                domain, realm,
+                                verify_certs=False):
         for (service, networks) in services.items():
             for network in networks:
                 subhost = '{host}.{network}.{domain}'.format(
                     host=host, network=network, domain=domain
                 )
-                self.verify_service(service, subhost, realm, domain)
+                LOG.debug("SUBHOST: %s", subhost)
+                self.verify_service(service, subhost, realm,
+                                    domain,
+                                    verify_certs)
 
-    def verify_service(self, service, host, realm, domain):
+    def verify_service(self, service, host, realm, domain,
+                       verify_certs=False):
         self.verify_host_registered_with_ipa(host)
         self.verify_service_created(service, host, realm)
+        self.verify_service_managed_by_host(service, host, realm)
+        if verify_certs:
+            self.verify_service_cert(service, host, realm, domain)
 
+    def verify_service_cert(self, service, host, realm, domain):
+        LOG.debug("Verifying cert for %s %s %s", service, host, domain) 
         serial = self.get_service_cert(service, host, realm)
         if (service == 'mysql' and host ==
                 'overcloud-controller-0.internalapi.{domain}'.format(
@@ -142,10 +165,11 @@ class NovajoinScenarioTest(manager.ScenarioTest):
             pass
         else:
             self.assertTrue(serial is not None)
-        self.verify_service_managed_by_host(service, host, realm)
 
-    def verify_controller_managed_services(self, services, realm, domain):
+    def verify_managed_services(self, services, realm, domain,
+                                verify_certs=False):
         for principal in services:
             service = principal.split('/', 1)[0]
             host = principal.split('/', 1)[1]
-            self.verify_service(service, host, realm, domain)
+            self.verify_service(service, host, realm, domain,
+                                verify_certs)
