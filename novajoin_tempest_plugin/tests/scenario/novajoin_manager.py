@@ -48,15 +48,27 @@ class NovajoinScenarioTest(manager.ScenarioTest):
         super(NovajoinScenarioTest, cls).setup_clients()
         cls.ipa_client = ipa_client.IPAClient()
 
-    def verify_host_registered_with_ipa(self, host):
+    def verify_host_registered_with_ipa(self, host, add_domain=True):
+        if add_domain:
+            host = self.add_domain_to_host(host)
         result = self.ipa_client.find_host(host)
         self.assertTrue(result['count'] > 0)
 
-    def verify_host_not_registered_with_ipa(self, host):
+    def verify_host_not_registered_with_ipa(self, host, add_domain=True):
+        if add_domain:
+            host = self.add_domain_to_host(host)
         result = self.ipa_client.find_host(host)
         self.assertFalse(result['count'] > 0)
 
-    def verify_host_has_keytab(self, host):
+    def add_domain_to_host(self, host):
+        host = '{host}.{domain}'.format(
+            host=host,
+            domain=self.ipa_client.domain)
+        return host
+
+    def verify_host_has_keytab(self, host, add_domain=True):
+        if add_domain:
+            host = self.add_domain_to_host(host)
         result = self.ipa_client.show_host(host)['result']
         start = int(time.time())
         keytab_status = result['has_keytab']
@@ -139,7 +151,7 @@ class NovajoinScenarioTest(manager.ScenarioTest):
                 self.verify_service(service, subhost, verify_certs)
 
     def verify_service(self, service, host, verify_certs=False):
-        self.verify_host_registered_with_ipa(host)
+        self.verify_host_registered_with_ipa(host, add_domain=False)
         self.verify_service_created(service, host)
         self.verify_service_managed_by_host(service, host)
         if verify_certs:

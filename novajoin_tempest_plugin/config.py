@@ -20,15 +20,22 @@ service_option = cfg.BoolOpt("novajoin",
                              help="Whether or not novajoin is expected to be "
                                   "available")
 
-ipa_group = cfg.OptGroup(
-    name="ipa",
-    title="IPA connection information")
+novajoin_group = cfg.OptGroup(
+    name="novajoin",
+    title="Novajoin test plugin settings")
 
-IpaGroup = [
-    cfg.StrOpt('username',
-               default='admin',
-               help='User to connect to IPA'),
-    cfg.StrOpt('password',
-               default='password',
-               help='Password to connect to IPA'),
+NovajoinGroup = [
+    cfg.StrOpt('keytab',
+               default='/home/stack/novajoin.keytab',
+               help='Keytab to connect to IPA as the novajoin user'),
+    cfg.StrOpt('tripleo',
+               default='True',
+               help='Run triple-O config tests'),
+    cfg.ListOpt('tripleo_controllers',
+                default=['overcloud-controller-0'],
+                help='List of overcloud controller short host names'),
+    cfg.StrOpt('tripleo_undercloud',
+               default='undercloud',
+               help='Undercloud short host name'
+               )
 ]

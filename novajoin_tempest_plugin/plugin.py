@@ -33,11 +33,11 @@ class NovajoinTempestPlugin(plugins.TempestPlugin):
         conf.register_opt(project_config.service_option,
                           group='service_available')
 
-        # Register ipa connection options
-        conf.register_group(project_config.ipa_group)
-        conf.register_opts(project_config.IpaGroup,
-                           project_config.ipa_group)
+        conf.register_group(project_config.novajoin_group)
+        conf.register_opts(project_config.NovajoinGroup,
+                           project_config.novajoin_group)
 
     def get_opt_lists(self):
         return [('service_available', [project_config.service_option]),
-                (project_config.ipa_group.name, project_config.IpaGroup)]
+                (project_config.novajoin_group.name,
+                 project_config.NovajoinGroup)]

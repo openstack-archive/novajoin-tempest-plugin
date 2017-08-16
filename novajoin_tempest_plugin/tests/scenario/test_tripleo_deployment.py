@@ -20,13 +20,6 @@ from tempest import config
 CONF = config.CONF
 LOG = logging.getLogger(__name__)
 
-DOMAIN = 'tripleodomain.example.com'
-
-HOSTS = [
-    'undercloud',
-    'overcloud-controller-0'
-]
-
 CONTROLLER_CERT_TAGS = [
     'mysql',
     'rabbitmq',
@@ -40,8 +33,6 @@ CONTROLLER_CERT_TAGS = [
     'haproxy-storage-cert',
     'haproxy-storage_mgmt-cert'
 ]
-
-CONTROLLERS = ['overcloud-controller-0']
 
 
 class TripleOTest(novajoin_manager.NovajoinScenarioTest):
@@ -67,7 +58,8 @@ class TripleOTest(novajoin_manager.NovajoinScenarioTest):
     @classmethod
     def skip_checks(cls):
         super(TripleOTest, cls).skip_checks()
-        pass
+        if not CONF.novajoin.tripleo:
+            raise cls.skipException('Tripleo configuration is not enabled')
 
     def _get_server_id(self, name):
         # params = {'name': name}
@@ -82,13 +74,14 @@ class TripleOTest(novajoin_manager.NovajoinScenarioTest):
         return None
 
     def test_hosts_are_registered(self):
-        for host in HOSTS:
-            hostname = "{host}.{domain}".format(host=host, domain=DOMAIN)
-            self.verify_host_registered_with_ipa(hostname)
-            self.verify_host_has_keytab(hostname)
+        hosts = CONF.novajoin.tripleo_controllers.append(
+            CONF.novajoin.tripleo_undercloud)
+        for host in hosts:
+            self.verify_host_registered_with_ipa(host)
+            self.verify_host_has_keytab(host)
 
     def test_verify_compact_services_created(self):
-        for host in CONTROLLERS:
+        for host in CONF.novajoin.tripleo_controllers:
             metadata = self.servers_client.list_server_metadata(
                 self._get_server_id(host))['metadata']
             services = metadata['compact_services']
@@ -101,7 +94,7 @@ class TripleOTest(novajoin_manager.NovajoinScenarioTest):
             )
 
     def test_verify_controller_managed_services(self):
-        for host in CONTROLLERS:
+        for host in CONF.novajoin.tripleo_controllers:
             metadata = self.servers_client.list_server_metadata(
                 self._get_server_id(host))['metadata']
             managed_services = [metadata[key] for key in metadata.keys()
@@ -112,7 +105,7 @@ class TripleOTest(novajoin_manager.NovajoinScenarioTest):
                 verify_certs=True)
 
     def test_verify_service_certs_are_tracked(self):
-        for host in CONTROLLERS:
+        for host in CONF.novajoin.tripleo_controllers:
             server_id = self._get_server_id(host)
             server = self.servers_client.show_server(server_id)['server']
             server_ip = self.get_server_ip(server)
@@ -125,7 +118,7 @@ class TripleOTest(novajoin_manager.NovajoinScenarioTest):
                 )
 
     def test_overcloud_is_ipaclient(self):
-        for host in CONTROLLERS:
+        for host in CONF.novajoin.tripleo_controllers:
             server_id = self._get_server_id(host)
             server = self.servers_client.show_server(server_id)['server']
             server_ip = self.get_server_ip(server)
