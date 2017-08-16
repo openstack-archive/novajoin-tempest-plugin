@@ -21,7 +21,6 @@ CONF = config.CONF
 LOG = logging.getLogger(__name__)
 
 DOMAIN = 'tripleodomain.example.com'
-REALM = 'TRIPLEODOMAIN.EXAMPLE.COM'
 
 HOSTS = [
     'undercloud',
@@ -98,8 +97,6 @@ class TripleOTest(novajoin_manager.NovajoinScenarioTest):
             self.verify_compact_services(
                 services=compact_services,
                 host=host,
-                realm=REALM,
-                domain=DOMAIN,
                 verify_certs=True
             )
 
@@ -112,8 +109,6 @@ class TripleOTest(novajoin_manager.NovajoinScenarioTest):
             print(managed_services)
             self.verify_managed_services(
                 services=managed_services,
-                realm=REALM,
-                domain=DOMAIN,
                 verify_certs=True)
 
     def test_verify_service_certs_are_tracked(self):

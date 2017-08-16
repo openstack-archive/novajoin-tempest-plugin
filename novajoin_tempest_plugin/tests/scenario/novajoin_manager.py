@@ -12,7 +12,6 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
-import exceptions
 import subprocess
 import time
 
@@ -62,39 +61,34 @@ class NovajoinScenarioTest(manager.ScenarioTest):
         start = int(time.time())
         keytab_status = result['has_keytab']
         timeout = 300
-        while not keytab_status:
+        while not keytab_status and (int(time.time()) - start < timeout):
             time.sleep(30)
             result = self.ipa_client.show_host(host)['result']
             keytab_status = result['has_keytab']
-            if int(time.time()) - start >= 300:
-                message = ('Keytab failed to reach TRUE status '
-                           'within %s seconds' % (timeout))
-                raise exceptions.TimeoutException(message)
         self.assertTrue(keytab_status)
 
-    def verify_service_created(self, service, host, realm):
-        service_principal = '{servicename}/{hostname}@{realm}'.format(
-            servicename=service, hostname=host, realm=realm
-        )
+    def verify_service_created(self, service, host):
+        service_principal = self.get_service_principal(host, service)
         result = self.ipa_client.find_service(service_principal)
         self.assertTrue(result['count'] > 0)
 
-    def verify_service_managed_by_host(self, service, host, realm):
+    def verify_service_managed_by_host(self, service, host):
         # TODO(alee) Implement this using service-show
         pass
 
-    def verify_service_deleted(self, service, host, realm):
-        service_principal = '{servicename}/{hostname}@{realm}'.format(
-            servicename=service, hostname=host, realm=realm
-        )
+    def verify_service_deleted(self, service, host):
+        service_principal = self.get_service_principal(host, service)
         result = self.ipa_client.find_service(service_principal)
         self.assertFalse(result['count'] > 0)
 
-    def get_service_cert(self, service, host, realm):
-        service_principal = '{servicename}/{hostname}@{realm}'.format(
-            servicename=service, hostname=host, realm=realm
-        )
+    def get_service_cert(self, service, host):
+        service_principal = self.get_service_principal(host, service)
         return self.ipa_client.get_service_cert(service_principal)
+
+    def get_service_principal(self, host, service):
+        return '{service}/{hostname}@{realm}'.format(
+            service=service, hostname=host, realm=self.ipa_client.realm
+        )
 
     def verify_host_is_ipaclient(self, hostip, user, keypair):
         cmd = 'id admin'
@@ -135,41 +129,34 @@ class NovajoinScenarioTest(manager.ScenarioTest):
         result = self.ipa_client.show_cert(serial)['result']
         self.assertTrue(result['revoked'])
 
-    def verify_compact_services(self, services, host,
-                                domain, realm,
-                                verify_certs=False):
+    def verify_compact_services(self, services, host, verify_certs=False):
         for (service, networks) in services.items():
             for network in networks:
                 subhost = '{host}.{network}.{domain}'.format(
-                    host=host, network=network, domain=domain
+                    host=host, network=network, domain=self.ipa_client.domain
                 )
                 LOG.debug("SUBHOST: %s", subhost)
-                self.verify_service(service, subhost, realm,
-                                    domain,
-                                    verify_certs)
+                self.verify_service(service, subhost, verify_certs)
 
-    def verify_service(self, service, host, realm, domain,
-                       verify_certs=False):
+    def verify_service(self, service, host, verify_certs=False):
         self.verify_host_registered_with_ipa(host)
-        self.verify_service_created(service, host, realm)
-        self.verify_service_managed_by_host(service, host, realm)
+        self.verify_service_created(service, host)
+        self.verify_service_managed_by_host(service, host)
         if verify_certs:
-            self.verify_service_cert(service, host, realm, domain)
+            self.verify_service_cert(service, host)
 
-    def verify_service_cert(self, service, host, realm, domain):
-        LOG.debug("Verifying cert for %s %s %s", service, host, domain) 
-        serial = self.get_service_cert(service, host, realm)
+    def verify_service_cert(self, service, host):
+        LOG.debug("Verifying cert for %s %s", service, host)
+        serial = self.get_service_cert(service, host)
         if (service == 'mysql' and host ==
                 'overcloud-controller-0.internalapi.{domain}'.format(
-                domain=domain)):
+                domain=self.ipa_client.domain)):
             pass
         else:
             self.assertTrue(serial is not None)
 
-    def verify_managed_services(self, services, realm, domain,
-                                verify_certs=False):
+    def verify_managed_services(self, services, verify_certs=False):
         for principal in services:
             service = principal.split('/', 1)[0]
             host = principal.split('/', 1)[1]
-            self.verify_service(service, host, realm, domain,
-                                verify_certs)
+            self.verify_service(service, host, verify_certs)

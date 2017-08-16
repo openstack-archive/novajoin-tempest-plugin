@@ -56,13 +56,15 @@ class IPABase(object):
         os.environ['KRB5CCNAME'] = self.ccache
         os.environ['KRB5_CLIENT_KTNAME'] = '/home/stack/krb5.keytab'
         if self._ipa_client_configured() and not api.isdone('finalize'):
-            (hostname, realm) = self.get_host_and_realm()
             api.bootstrap(context='novajoin')
             api.finalize()
         self.batch_args = list()
         self.backoff = backoff
+        (_hostname, domain, realm) = self.get_host_domain_and_realm()
+        self.domain = domain
+        self.realm = realm
 
-    def get_host_and_realm(self):
+    def get_host_domain_and_realm(self):
         """Return the hostname and IPA realm name.
 
            IPA 4.4 introduced the requirement that the schema be
@@ -77,8 +79,9 @@ class IPABase(object):
         config.read('/etc/ipa/default.conf')
         hostname = config.get('global', 'host')
         realm = config.get('global', 'realm')
+        domain = config.get('global', 'domain')
 
-        return hostname, realm
+        return hostname, domain, realm
 
     def __backoff(self):
         LOG.debug("Backing off %s seconds", self.backoff)
