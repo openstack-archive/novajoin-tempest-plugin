@@ -74,8 +74,8 @@ class TripleOTest(novajoin_manager.NovajoinScenarioTest):
         return None
 
     def test_hosts_are_registered(self):
-        hosts = CONF.novajoin.tripleo_controllers.append(
-            CONF.novajoin.tripleo_undercloud)
+        hosts = list(CONF.novajoin.tripleo_controllers)
+        hosts.append(CONF.novajoin.tripleo_undercloud)
         for host in hosts:
             self.verify_host_registered_with_ipa(host)
             self.verify_host_has_keytab(host)
