@@ -112,23 +112,24 @@ class TripleOTest(novajoin_manager.NovajoinScenarioTest):
                 verify_certs=True)
 
     def test_verify_service_certs_are_tracked(self):
-        # TODO(alee) get correct overcloud_ip
         for host in CONTROLLERS:
             server_id = self._get_server_id(host)
-            print(self.get_server_ip(server_id))
+            server = self.servers_client.show_server(server_id)['server']
+            server_ip = self.get_server_ip(server)
 
-        overcloud_ip = '192.168.24.17'
-        for tag in CONTROLLER_CERT_TAGS:
-            self.verify_overcloud_cert_tracked(
-                overcloud_ip,
-                'heat-admin',
-                tag
-            )
+            for tag in CONTROLLER_CERT_TAGS:
+                self.verify_overcloud_cert_tracked(
+                    server_ip,
+                    'heat-admin',
+                    tag
+                )
 
     def test_overcloud_is_ipaclient(self):
-        # TODO(alee) get correct overcloud_ip
-        overcloud_ip = '192.168.24.17'
-        self.verify_overcloud_host_is_ipaclient(
-            overcloud_ip,
-            'heat-admin'
-        )
+        for host in CONTROLLERS:
+            server_id = self._get_server_id(host)
+            server = self.servers_client.show_server(server_id)['server']
+            server_ip = self.get_server_ip(server)
+            self.verify_overcloud_host_is_ipaclient(
+                server_ip,
+                'heat-admin'
+            )
