@@ -58,6 +58,13 @@ class NovajoinScenarioTest(manager.ScenarioTest):
         if add_domain:
             host = self.add_domain_to_host(host)
         result = self.ipa_client.find_host(host)
+        start = int(time.time())
+        host_count = result['count']
+        timeout = 300
+        while (host_count > 0) and (int(time.time()) - start < timeout):
+            time.sleep(30)
+            result = self.ipa_client.find_host(host)
+            host_count = result['count']
         self.assertFalse(result['count'] > 0)
 
     def add_domain_to_host(self, host):
@@ -85,10 +92,30 @@ class NovajoinScenarioTest(manager.ScenarioTest):
         self.assertTrue(result['count'] > 0)
 
     def verify_service_managed_by_host(self, service, host):
-        # TODO(alee) Implement this using service-show
-        pass
+        service_principal = self.get_service_principal(host, service)
+        result = self.ipa_client.service_managed_by_host(service_principal,
+                                                         host)
+        self.assertTrue(result)
 
     def verify_service_deleted(self, service, host):
+        service_principal = self.get_service_principal(host, service)
+        result = self.ipa_client.find_service(service_principal)
+        self.assertFalse(result['count'] > 0)
+
+    def verify_compact_services_deleted(self, services, host):
+        for (service, networks) in services.items():
+            for network in networks:
+                subhost = '{host}.{network}.{domain}'.format(
+                    host=host, network=network, domain=self.ipa_client.domain
+                )
+        service_principal = self.get_service_principal(subhost, service)
+        result = self.ipa_client.find_service(service_principal)
+        self.assertFalse(result['count'] > 0)
+
+    def verify_managed_services_deleted(self, services):
+        for principal in services:
+            service = principal.split('/', 1)[0]
+            host = principal.split('/', 1)[1]
         service_principal = self.get_service_principal(host, service)
         result = self.ipa_client.find_service(service_principal)
         self.assertFalse(result['count'] > 0)
@@ -103,7 +130,7 @@ class NovajoinScenarioTest(manager.ScenarioTest):
         )
 
     def verify_host_is_ipaclient(self, hostip, user, keypair):
-        cmd = 'id admin'
+        cmd = "id admin"
         private_key = keypair['private_key']
         ssh_client = self.get_remote_client(hostip, user, private_key)
         result = ssh_client.exec_command(cmd)

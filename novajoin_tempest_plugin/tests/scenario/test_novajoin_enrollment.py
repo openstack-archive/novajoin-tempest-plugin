@@ -13,104 +13,157 @@
 # under the License.
 
 from oslo_log import log as logging
+
 from tempest import config
-from tempest.lib import decorators
-from tempest import test
+from tempest.lib.common.utils import data_utils
 
 from novajoin_tempest_plugin.tests.scenario import novajoin_manager
 
+import ast
+
 CONF = config.CONF
 LOG = logging.getLogger(__name__)
+USER = 'cloud-user'
+NETWORK = 'ctlplane'
 
 
-class EnrollmentTest(novajoin_manager.NovajoinScenarioTest):
+class ServerTest(novajoin_manager.NovajoinScenarioTest):
 
-    """The test suite for server enrollment
-
-    This test is to verify the enrollment and removal of
-    servers with a nova service that has been configured to register
-    and de-register clients with an IPA server.
-
-    We create servers using ipa_enroll=True as metadata, and also
-    by using an image that contains ipa_enroll=True as metadata.
-
-    The tests do the following:
-        * Create a server using either metadata method
-        * Validate that the server is registered in the IPA server
-        * Validate the the ipaclient is working on the server
-        * Delete the newly created server
-        * Validate that the server is no longer registered with IPA
-
-    TODO:  We can also add the following tests:
-        * Add metadata to register and create some cert entries
-        * Validate that the certs for those entries are issued and
-          tracked
-        * Validate that the service entries are removed when the
-          instance is deleted.
-        * Validate that the certs issued have been revoked.
-    """
+    credentials = ['primary', 'admin']
 
     @classmethod
-    def skip_checks(cls):
-        super(EnrollmentTest, cls).skip_checks()
-        pass
+    def setup_credentials(cls):
+        cls.set_network_resources()
+        super(ServerTest, cls).setup_credentials()
 
-    @decorators.idempotent_id('89165fb4-5534-4b9d-8429-97ccffb8f86f')
-    @test.services('compute')
-    def test_enrollment_using_metadata(self):
-        LOG.info("Creating keypair and security group")
-        keypair = self.create_keypair()
-        security_group = self._create_security_group()
-        # TODO(alee) Add metadata for ipa_enroll=True
-        # TODO(alee) Add metadata for service to be created/joined
+    @classmethod
+    def setup_clients(cls):
+        super(ServerTest, cls).setup_clients()
 
-        service = "random service to be added"
-        cn = "cn of random service certificate"
-        server = self.create_server(
-            name='passed_metadata_server',
-            image_id=self.no_metadata_img_uuid,
-            key_name=keypair['name'],
-            security_groups=[{'name': security_group['name']}],
-            wait_until='ACTIVE'
+    @classmethod
+    def resource_setup(cls):
+        super(ServerTest, cls).resource_setup()
+
+    def _create_flavor(self, flavor_name):
+        specs = {"capabilities:boot_option": "local",
+                 "capabilities:profile": "compute"}
+        flvid = data_utils.rand_int_id(start=1000)
+        ram = 4096
+        vcpus = 1
+        disk = 40
+        self.flavors_client.create_flavor(name=flavor_name,
+                                          ram=ram,
+                                          vcpus=vcpus,
+                                          disk=disk,
+                                          id=flvid)['flavor']
+        self.flavors_client.set_flavor_extra_spec(flvid,
+                                                  **specs)
+        return flvid
+
+    def _create_image(self, name, properties={}):
+        container_format = 'bare'
+        disk_format = 'qcow2'
+        image_id = self.image_create(name=name,
+                                     fmt=container_format,
+                                     disk_format=disk_format,
+                                     properties=properties)
+        return image_id
+
+    def _verify_host_and_services_are_enrolled(self, server_name,
+                                               server_id, keypair):
+
+        self.verify_host_registered_with_ipa(server_name)
+        self.verify_host_has_keytab(server_name)
+
+        # Verify compact services are created
+
+        metadata = self.servers_client.list_server_metadata(server_id
+                                                            )['metadata']
+        services = metadata['compact_services']
+        self.compact_services = ast.literal_eval(services)
+        self.verify_compact_services(
+            services=self.compact_services,
+            host=server_name,
         )
-        self.verify_registered_host(server, keypair, service, cn)
-        self.delete_server(server)
 
-        serial = "serial number of random service certificate"
-        self.verify_unregistered_host(server, service, serial)
+        # Verify managed services are created
+        metadata = self.servers_client.list_server_metadata(server_id
+                                                            )['metadata']
+        self.managed_services = [metadata[key] for key in metadata.keys()
+                                 if key.startswith('managed_service_')]
+        self.verify_managed_services(self.managed_services)
 
-    @decorators.idempotent_id('cbc752ed-b716-4727-910f-956ccf965723')
-    @test.services('compute')
-    def test_enrollment_using_image_metadata(self):
-        LOG.info("Creating keypair and security group")
+        # Verify instance created above is ipaclient
+        server_details = self.servers_client.show_server(server_id
+                                                         )['server']
+        ip = self.get_server_ip(server_details)
+        self.verify_host_is_ipaclient(ip, USER, keypair)
+
+    def _verify_host_and_services_are_not_enrolled(self,
+                                                   server_name,
+                                                   server_id):
+
+        # Verify host and associated compact and managed services
+        # are no longer registered with ipa
+        self.verify_host_not_registered_with_ipa(server_name)
+        self.verify_compact_services_deleted(services=self.compact_services,
+                                             host=server_name)
+        self.verify_managed_services_deleted(self.managed_services)
+
+    def test_enrollment_metadata_in_instance(self):
+
+        networks = self.networks_client.list_networks(name=NETWORK)
+        net_id = networks['networks'][0]['id']
+        flavor_name = data_utils.rand_name('flv_metadata_in_instance')
+        flavor_id = self._create_flavor(flavor_name)
+        image_name = data_utils.rand_name('img_metadata_in_instance')
+        image_id = self._create_image(image_name)
         keypair = self.create_keypair()
-        security_group = self._create_security_group()
+        instance_name = data_utils.rand_name("instance")
+        metadata = {"ipa_enroll": "True",
+                    "compact_services":
+                    "{\"HTTP\": [\"ctlplane\", \"internalapi\"]}",
+                    "managed_service_test": "novajoin/test.example.com"}
+        server = self.create_server(name=instance_name,
+                                    image_id=image_id,
+                                    flavor=flavor_id,
+                                    net_id=net_id,
+                                    key=keypair['name'],
+                                    metadata=metadata,
+                                    wait_until='ACTIVE')
+        self._verify_host_and_services_are_enrolled(instance_name,
+                                                    server['id'],
+                                                    keypair)
+        self.servers_client.delete_server(server['id'])
+        self._verify_host_and_services_are_not_enrolled(instance_name,
+                                                        server['id'])
 
-        # TODO(alee) Add metadata for service to be created/joined
-        service = "random service to be added"
-        cn = "cn of random service certificate"
+    def test_enrollment_metadata_in_image(self):
 
-        server = self.create_server(
-            name='img_with_metadata_server',
-            image_id=self.metadata_img_uuid,
-            key_name=keypair['name'],
-            security_groups=[{'name': security_group['name']}],
-            wait_until='ACTIVE'
-        )
-        self.verify_registered_host(server, keypair, service, cn)
-        self.delete_server(server)
-
-        serial = "serial number of cert for random service"
-        self.verify_unregistered_host(server, service, serial)
-
-    def verify_registered_host(self, server, keypair, service, cn):
-        self.verify_host_registered_with_ipa(server)
-        self.verify_host_has_keytab(server)
-        self.verify_host_is_ipaclient(server, keypair)
-        self.verify_service_created(service, server)
-        self.verify_cert_tracked(server, keypair, cn)
-
-    def verify_unregistered_host(self, server, service, serial):
-        self.verify_host_not_registered_with_ipa(server)
-        self.verify_service_deleted(service, server)
-        self.verify_cert_revoked(serial)
+        networks = self.networks_client.list_networks(name=NETWORK)
+        net_id = networks['networks'][0]['id']
+        flavor_name = data_utils.rand_name('flv_metadata_in_image')
+        flavor_id = self._create_flavor(flavor_name)
+        image_name = data_utils.rand_name('metadata_in_image')
+        properties = {"ipa_enroll": "True"}
+        image_id = self._create_image(image_name, properties)
+        keypair = self.create_keypair()
+        f = open('/tmp/priv.key', 'w')
+        f.write(keypair['private_key'])
+        f.close()
+        instance_name = data_utils.rand_name("novajoin")
+        metadata = {"compact_services":
+                    "{\"HTTP\": [\"ctlplane\", \"internalapi\"]}",
+                    "managed_service_test": "novajoin/test.example.com"}
+        server = self.create_server(name=instance_name,
+                                    image_id=image_id,
+                                    flavor=flavor_id,
+                                    net_id=net_id,
+                                    key=keypair['name'],
+                                    metadata=metadata,
+                                    wait_until='ACTIVE')
+        self._verify_host_and_services_are_enrolled(instance_name,
+                                                    server['id'], keypair)
+        self.servers_client.delete_server(server['id'])
+        self._verify_host_and_services_are_not_enrolled(instance_name,
+                                                        server['id'])

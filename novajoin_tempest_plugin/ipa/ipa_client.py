@@ -190,7 +190,7 @@ class IPAClient(IPABase):
 
     def service_managed_by_host(self, service_principal, host):
         """Return True if service is managed by specified host"""
-        params = [service_principal]
+        params = [unicode(service_principal)]
         service_args = {}
         try:
             result = self._call_ipa('service_show', *params, **service_args)
