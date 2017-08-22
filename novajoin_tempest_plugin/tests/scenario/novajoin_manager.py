@@ -138,12 +138,8 @@ class NovajoinScenarioTest(manager.ScenarioTest):
         self.assertTrue(all(x in result for x in params))
 
     def verify_overcloud_host_is_ipaclient(self, hostip, user):
-        keypair = '/home/stack/.ssh/id_rsa'
-        cmd = ['ssh', '-i', keypair,
-               '{user}@{hostip}'.format(user=user, hostip=hostip),
-               '-C', 'id admin']
-
-        result = subprocess.check_output(cmd)
+        cmd = 'id admin'
+        result = self.execute_on_controller(user, hostip, cmd)
         params = ['uid', 'gid', 'groups']
         self.assertTrue(all(x in result for x in params))
 
@@ -155,12 +151,8 @@ class NovajoinScenarioTest(manager.ScenarioTest):
         self.assertTrue('track: yes' in result)
 
     def verify_overcloud_cert_tracked(self, hostip, user, cert_id):
-        keypair = '/home/stack/.ssh/id_rsa'
-        cmd = ['ssh', '-i', keypair,
-               '{user}@{hostip}'.format(user=user, hostip=hostip),
-               '-C', 'sudo getcert list -i {certid}'.format(certid=cert_id)]
-
-        result = subprocess.check_output(cmd)
+        cmd = 'sudo getcert list -i {certid}'.format(certid=cert_id)
+        result = self.execute_on_controller(user, hostip, cmd)
         self.assertTrue('track: yes' in result)
 
     def verify_cert_revoked(self, serial):
@@ -199,3 +191,37 @@ class NovajoinScenarioTest(manager.ScenarioTest):
             service = principal.split('/', 1)[0]
             host = principal.split('/', 1)[1]
             self.verify_service(service, host, verify_certs)
+
+    def verify_overcloud_tls_connection(self, controller_ip, user, hostport):
+        """ Check TLS connection.  Failure will raise an exception"""
+        cmd = ('echo \'GET / HTTP/1.0\r\n\' | openssl s_client -quiet '
+               '-connect {hostport} -tls1_2'.format(hostport=hostport))
+        self.execute_on_controller(user, controller_ip, cmd)
+
+    def get_server_id(self, name):
+        params = {'all_tenants': '', 'name': name}
+        resp = self.servers_client.list_servers(detail=True, **params)
+        print(resp)
+        links = resp['servers'][0]['links']
+        for link in links:
+            if link['rel'] == 'self':
+                href = link['href']
+                return href.split('/')[-1]
+        return None
+
+    def get_rabbitmq_host(self, user, controller_ip):
+        cmd = 'sudo hiera -c /etc/puppet/hiera.yaml rabbitmq::ssl_interface'
+        return self.execute_on_controller(user, controller_ip, cmd)
+
+    def get_rabbitmq_port(self, user, controller_ip):
+        cmd = 'sudo hiera -c /etc/puppet/hiera.yaml rabbitmq::ssl_port'
+        return self.execute_on_controller(user, controller_ip, cmd)
+
+    def execute_on_controller(self, user, hostip, target_cmd):
+        keypair = '/home/stack/.ssh/id_rsa'
+        cmd = ['ssh', '-i', keypair,
+               '{user}@{hostip}'.format(user=user, hostip=hostip),
+               '-C', target_cmd]
+        return subprocess.check_output(cmd)
+
+
