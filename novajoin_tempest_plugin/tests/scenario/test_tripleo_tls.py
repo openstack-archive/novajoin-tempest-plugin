@@ -20,6 +20,15 @@ from tempest import config
 CONF = config.CONF
 LOG = logging.getLogger(__name__)
 
+TLS_EXCEPTIONS = [
+    ("nova_novncproxy", "6080"),
+    ("redis", "6379"),
+    ("nova_metadata", "8775"),
+    ("mysql", "3306"),
+    ("haproxy.stats", "1993"),
+    ("horizon", "80")
+]
+
 
 class TripleOTLSTest(novajoin_manager.NovajoinScenarioTest):
 
@@ -32,13 +41,9 @@ class TripleOTLSTest(novajoin_manager.NovajoinScenarioTest):
     for an HA deployment have been correctly created.
 
     This means:
-         * Validating that the undercloud is enrolled in IPA
-         * Validating that the controller is enrolled in IPA
-         * Validating that the compute node is enrolled
-         * Validating that HA services have been created in IPA
-         * Validating that certs are being tracked.
-         * Validate that TLS connections are being established for
-           all internal services
+        * Validate that all haproxy services can be connected
+          using openssl client (tls)
+        * Validate rabbitmq can be connected using TLS.
     """
 
     @classmethod
@@ -47,13 +52,12 @@ class TripleOTLSTest(novajoin_manager.NovajoinScenarioTest):
         if not CONF.novajoin.tripleo:
             raise cls.skipException('Tripleo configuration is not enabled')
 
-    def get_haproxy_cfg(self, hostip):
+    def get_haproxy_cfg_1(self, hostip):
         print(hostip)
         return "/home/stack/haproxy.cfg"
 
-    def parse_haproxy_cfg(self, haproxy_file):
-        with open(haproxy_file) as f:
-            content = f.readlines()
+    def parse_haproxy_cfg(self, haproxy_data):
+        content = haproxy_data.splitlines()
         content = [x.strip() for x in content]
 
         params = []
@@ -78,22 +82,26 @@ class TripleOTLSTest(novajoin_manager.NovajoinScenarioTest):
                 controller_id)['server']
             controller_ip = self.get_server_ip(controller_data)
 
-            haproxy_file = self.get_haproxy_cfg(controller_ip)
-            services = self.parse_haproxy_cfg(haproxy_file)
+            haproxy = self.get_haproxy_cfg('heat-admin', controller_ip)
+            services = self.parse_haproxy_cfg(haproxy)
 
             for tag, params in services.items():
-                # TODO(alee) make sure tag/param is not on an exception list
-                # if so continue
-
                 print("*** Testing {service}".format(service=tag))
                 for param in params:
                     print(param)
-                    self.assertTrue("ssl" in param)
                     hostport = self.get_hostport(param)
-                    self.verify_overcloud_tls_conn(
-                         controller_ip=controller_ip,
-                         user='heat-admin',
-                         hostport=hostport)
+                    port = re.search('\S*:(\d*)', hostport).group(1)
+                    if "ssl" not in param:
+                        if (tag, port) in TLS_EXCEPTIONS:
+                            print("Exception: {p}".format(p=param))
+                        continue
+
+                    self.assertTrue("ssl" in param)
+                    self.verify_overcloud_tls_connection(
+                        controller_ip=controller_ip,
+                        user='heat-admin',
+                        hostport=hostport
+                    )
 
     def get_hostport(self, param):
         if param.startswith("bind"):
@@ -107,9 +115,9 @@ class TripleOTLSTest(novajoin_manager.NovajoinScenarioTest):
             controller_data = self.servers_client.show_server(
                 controller_id)['server']
             controller_ip = self.get_server_ip(controller_data)
-            rabbitmq_host = self.get_rabbitmq_host(controller_ip, 'heat-admin')
-            rabbitmq_port = self.get_rabbitmq_port(controller_ip, 'heat-admin')
-            self.verify_overcloud_tls_conn(
+            rabbitmq_host = self.get_rabbitmq_host('heat-admin', controller_ip)
+            rabbitmq_port = self.get_rabbitmq_port('heat-admin', controller_ip)
+            self.verify_overcloud_tls_connection(
                 controller_ip=controller_ip,
                 user='heat-admin',
                 hostport="{host}:{port}".format(host=rabbitmq_host,

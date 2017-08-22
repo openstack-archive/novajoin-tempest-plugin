@@ -193,7 +193,7 @@ class NovajoinScenarioTest(manager.ScenarioTest):
             self.verify_service(service, host, verify_certs)
 
     def verify_overcloud_tls_connection(self, controller_ip, user, hostport):
-        """ Check TLS connection.  Failure will raise an exception"""
+        """Check TLS connection.  Failure will raise an exception"""
         cmd = ('echo \'GET / HTTP/1.0\r\n\' | openssl s_client -quiet '
                '-connect {hostport} -tls1_2'.format(hostport=hostport))
         self.execute_on_controller(user, controller_ip, cmd)
@@ -209,13 +209,17 @@ class NovajoinScenarioTest(manager.ScenarioTest):
                 return href.split('/')[-1]
         return None
 
+    def get_haproxy_cfg(self, user, controller_ip):
+        cmd = 'sudo cat /etc/haproxy/haproxy.cfg'
+        return self.execute_on_controller(user, controller_ip, cmd)
+
     def get_rabbitmq_host(self, user, controller_ip):
         cmd = 'sudo hiera -c /etc/puppet/hiera.yaml rabbitmq::ssl_interface'
-        return self.execute_on_controller(user, controller_ip, cmd)
+        return self.execute_on_controller(user, controller_ip, cmd).rstrip()
 
     def get_rabbitmq_port(self, user, controller_ip):
         cmd = 'sudo hiera -c /etc/puppet/hiera.yaml rabbitmq::ssl_port'
-        return self.execute_on_controller(user, controller_ip, cmd)
+        return self.execute_on_controller(user, controller_ip, cmd).rstrip()
 
     def execute_on_controller(self, user, hostip, target_cmd):
         keypair = '/home/stack/.ssh/id_rsa'
@@ -223,5 +227,3 @@ class NovajoinScenarioTest(manager.ScenarioTest):
                '{user}@{hostip}'.format(user=user, hostip=hostip),
                '-C', target_cmd]
         return subprocess.check_output(cmd)
-
-
