@@ -24,6 +24,11 @@ from novajoin_tempest_plugin.tests.scenario import manager
 CONF = config.CONF
 LOG = logging.getLogger(__name__)
 
+CONTAINER_HAPROXY_FILE = (
+    '/var/lib/config-data/puppet-generated/haproxy/etc/haproxy/haproxy.cfg'
+)
+HAPROXY_FILE = "/etc/haproxy/haproxy.cfg"
+
 
 class NovajoinScenarioTest(manager.ScenarioTest):
 
@@ -210,8 +215,14 @@ class NovajoinScenarioTest(manager.ScenarioTest):
         return None
 
     def get_haproxy_cfg(self, user, controller_ip):
-        cmd = 'sudo cat /etc/haproxy/haproxy.cfg'
-        return self.execute_on_controller(user, controller_ip, cmd)
+        try:
+            # check containerized location first
+            cmd = 'sudo cat {fname}'.format(fname=CONTAINER_HAPROXY_FILE)
+            return self.execute_on_controller(user, controller_ip, cmd)
+        except subprocess.CalledProcessError:
+            # try non-containerized location
+            cmd = 'sudo cat {fname}'.format(fname=HAPROXY_FILE)
+            return self.execute_on_controller(user, controller_ip, cmd)
 
     def get_rabbitmq_host(self, user, controller_ip):
         cmd = 'sudo hiera -c /etc/puppet/hiera.yaml rabbitmq::ssl_interface'
