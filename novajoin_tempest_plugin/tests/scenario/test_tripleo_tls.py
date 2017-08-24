@@ -77,11 +77,7 @@ class TripleOTLSTest(novajoin_manager.NovajoinScenarioTest):
 
     def test_haproxy_tls_connections(self):
         for controller in CONF.novajoin.tripleo_controllers:
-            controller_id = self.get_server_id(controller)
-            controller_data = self.servers_client.show_server(
-                controller_id)['server']
-            controller_ip = self.get_server_ip(controller_data)
-
+            controller_ip = self.get_overcloud_server_ip(controller)
             haproxy = self.get_haproxy_cfg('heat-admin', controller_ip)
             services = self.parse_haproxy_cfg(haproxy)
 
@@ -111,10 +107,7 @@ class TripleOTLSTest(novajoin_manager.NovajoinScenarioTest):
 
     def test_rabbitmq_tls_connection(self):
         for controller in CONF.novajoin.tripleo_controllers:
-            controller_id = self.get_server_id(controller)
-            controller_data = self.servers_client.show_server(
-                controller_id)['server']
-            controller_ip = self.get_server_ip(controller_data)
+            controller_ip = self.get_overcloud_server_ip(controller)
             rabbitmq_host = self.get_rabbitmq_host('heat-admin', controller_ip)
             rabbitmq_port = self.get_rabbitmq_port('heat-admin', controller_ip)
             self.verify_overcloud_tls_connection(
@@ -122,4 +115,17 @@ class TripleOTLSTest(novajoin_manager.NovajoinScenarioTest):
                 user='heat-admin',
                 hostport="{host}:{port}".format(host=rabbitmq_host,
                                                 port=rabbitmq_port)
+            )
+
+    def test_libvirt_tls_connection(self):
+        for compute in CONF.novajoin.tripleo_computes:
+            compute_ip = self.get_overcloud_server_ip(compute)
+            libvirt_port = self.get_libvirt_port('heat-admin', compute_ip)
+
+            # TODO(alee) Is the host correct?
+            self.verify_overcloud_tls_connection(
+                controller_ip=compute_ip,
+                user='heat-admin',
+                hostport="{host}:{port}".format(host=compute_ip,
+                                                port=libvirt_port)
             )

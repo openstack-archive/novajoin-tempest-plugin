@@ -113,17 +113,18 @@ class NovajoinScenarioTest(manager.ScenarioTest):
                 subhost = '{host}.{network}.{domain}'.format(
                     host=host, network=network, domain=self.ipa_client.domain
                 )
-        service_principal = self.get_service_principal(subhost, service)
-        result = self.ipa_client.find_service(service_principal)
-        self.assertFalse(result['count'] > 0)
+                service_principal = self.get_service_principal(
+                    subhost, service)
+                result = self.ipa_client.find_service(service_principal)
+                self.assertFalse(result['count'] > 0)
 
     def verify_managed_services_deleted(self, services):
         for principal in services:
             service = principal.split('/', 1)[0]
             host = principal.split('/', 1)[1]
-        service_principal = self.get_service_principal(host, service)
-        result = self.ipa_client.find_service(service_principal)
-        self.assertFalse(result['count'] > 0)
+            service_principal = self.get_service_principal(host, service)
+            result = self.ipa_client.find_service(service_principal)
+            self.assertFalse(result['count'] > 0)
 
     def get_service_cert(self, service, host):
         service_principal = self.get_service_principal(host, service)
@@ -214,6 +215,11 @@ class NovajoinScenarioTest(manager.ScenarioTest):
                 return href.split('/')[-1]
         return None
 
+    def get_overcloud_server_ip(self, host):
+        host_id = self.get_server_id(host)
+        host_data = self.servers_client.show_server(host_id)['server']
+        return self.get_server_ip(host_data)
+
     def get_haproxy_cfg(self, user, controller_ip):
         try:
             # check containerized location first
@@ -231,6 +237,10 @@ class NovajoinScenarioTest(manager.ScenarioTest):
     def get_rabbitmq_port(self, user, controller_ip):
         cmd = 'sudo hiera -c /etc/puppet/hiera.yaml rabbitmq::ssl_port'
         return self.execute_on_controller(user, controller_ip, cmd).rstrip()
+
+    def get_libvirt_port(self, user, compute_ip):
+        # TODO(alee) Get from hiera nova::migration::libvirt::listen_address
+        return "16514"
 
     def execute_on_controller(self, user, hostip, target_cmd):
         keypair = '/home/stack/.ssh/id_rsa'

@@ -34,6 +34,11 @@ CONTROLLER_CERT_TAGS = [
     'haproxy-storage_mgmt-cert'
 ]
 
+COMPUTE_CERT_TAGS = [
+    'libvirt-client-cert',
+    'libvirt-server-cert'
+]
+
 
 class TripleOTest(novajoin_manager.NovajoinScenarioTest):
 
@@ -64,12 +69,15 @@ class TripleOTest(novajoin_manager.NovajoinScenarioTest):
     def test_hosts_are_registered(self):
         hosts = list(CONF.novajoin.tripleo_controllers)
         hosts.append(CONF.novajoin.tripleo_undercloud)
+        hosts.extend(CONF.novajoin.tripleo_computes)
         for host in hosts:
             self.verify_host_registered_with_ipa(host)
             self.verify_host_has_keytab(host)
 
     def test_verify_compact_services_created(self):
-        for host in CONF.novajoin.tripleo_controllers:
+        hosts = list(CONF.novajoin.tripleo_controllers)
+        hosts.extend(CONF.novajoin.tripleo_computes)
+        for host in hosts:
             metadata = self.servers_client.list_server_metadata(
                 self.get_server_id(host))['metadata']
             services = metadata['compact_services']
@@ -92,12 +100,9 @@ class TripleOTest(novajoin_manager.NovajoinScenarioTest):
                 services=managed_services,
                 verify_certs=True)
 
-    def test_verify_service_certs_are_tracked(self):
+    def test_verify_controller_certs_are_tracked(self):
         for host in CONF.novajoin.tripleo_controllers:
-            server_id = self.get_server_id(host)
-            server = self.servers_client.show_server(server_id)['server']
-            server_ip = self.get_server_ip(server)
-
+            server_ip = self.get_overcloud_server_ip(host)
             for tag in CONTROLLER_CERT_TAGS:
                 self.verify_overcloud_cert_tracked(
                     server_ip,
@@ -105,11 +110,21 @@ class TripleOTest(novajoin_manager.NovajoinScenarioTest):
                     tag
                 )
 
-    def test_overcloud_is_ipaclient(self):
-        for host in CONF.novajoin.tripleo_controllers:
-            server_id = self.get_server_id(host)
-            server = self.servers_client.show_server(server_id)['server']
-            server_ip = self.get_server_ip(server)
+    def test_verify_compute_certs_are_tracked(self):
+        for host in CONF.novajoin.tripleo_computes:
+            server_ip = self.get_overcloud_server_ip(host)
+            for tag in COMPUTE_CERT_TAGS:
+                self.verify_overcloud_cert_tracked(
+                    server_ip,
+                    'heat-admin',
+                    tag
+                )
+
+    def test_overcloud_hosts_are_ipaclients(self):
+        hosts = list(CONF.novajoin.tripleo_controllers)
+        hosts.extend(CONF.novajoin.tripleo_computes)
+        for host in hosts:
+            server_ip = self.get_overcloud_server_ip(host)
             self.verify_overcloud_host_is_ipaclient(
                 server_ip,
                 'heat-admin'

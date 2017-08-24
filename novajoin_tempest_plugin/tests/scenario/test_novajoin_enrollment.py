@@ -47,7 +47,7 @@ class ServerTest(novajoin_manager.NovajoinScenarioTest):
     def _create_flavor(self, flavor_name):
         specs = {"capabilities:boot_option": "local",
                  "capabilities:profile": "compute"}
-        flvid = data_utils.rand_int_id(start=1000)
+        flv_id = data_utils.rand_int_id(start=1000)
         ram = 4096
         vcpus = 1
         disk = 40
@@ -55,10 +55,10 @@ class ServerTest(novajoin_manager.NovajoinScenarioTest):
                                           ram=ram,
                                           vcpus=vcpus,
                                           disk=disk,
-                                          id=flvid)['flavor']
-        self.flavors_client.set_flavor_extra_spec(flvid,
+                                          id=flv_id)['flavor']
+        self.flavors_client.set_flavor_extra_spec(flv_id,
                                                   **specs)
-        return flvid
+        return flv_id
 
     def _create_image(self, name, properties={}):
         container_format = 'bare'
@@ -69,9 +69,8 @@ class ServerTest(novajoin_manager.NovajoinScenarioTest):
                                      properties=properties)
         return image_id
 
-    def _verify_host_and_services_are_enrolled(self, server_name,
-                                               server_id, keypair):
-
+    def _verify_host_and_services_are_enrolled(
+            self, server_name, server_id, keypair):
         self.verify_host_registered_with_ipa(server_name)
         self.verify_host_has_keytab(server_name)
 
@@ -87,8 +86,6 @@ class ServerTest(novajoin_manager.NovajoinScenarioTest):
         )
 
         # Verify managed services are created
-        metadata = self.servers_client.list_server_metadata(server_id
-                                                            )['metadata']
         self.managed_services = [metadata[key] for key in metadata.keys()
                                  if key.startswith('managed_service_')]
         self.verify_managed_services(self.managed_services)
@@ -99,10 +96,7 @@ class ServerTest(novajoin_manager.NovajoinScenarioTest):
         ip = self.get_server_ip(server_details)
         self.verify_host_is_ipaclient(ip, USER, keypair)
 
-    def _verify_host_and_services_are_not_enrolled(self,
-                                                   server_name,
-                                                   server_id):
-
+    def _verify_host_and_services_are_not_enrolled(self, server_name):
         # Verify host and associated compact and managed services
         # are no longer registered with ipa
         self.verify_host_not_registered_with_ipa(server_name)
@@ -135,8 +129,7 @@ class ServerTest(novajoin_manager.NovajoinScenarioTest):
                                                     server['id'],
                                                     keypair)
         self.servers_client.delete_server(server['id'])
-        self._verify_host_and_services_are_not_enrolled(instance_name,
-                                                        server['id'])
+        self._verify_host_and_services_are_not_enrolled(instance_name)
 
     def test_enrollment_metadata_in_image(self):
 
@@ -165,5 +158,4 @@ class ServerTest(novajoin_manager.NovajoinScenarioTest):
         self._verify_host_and_services_are_enrolled(instance_name,
                                                     server['id'], keypair)
         self.servers_client.delete_server(server['id'])
-        self._verify_host_and_services_are_not_enrolled(instance_name,
-                                                        server['id'])
+        self._verify_host_and_services_are_not_enrolled(instance_name)

@@ -34,6 +34,9 @@ NovajoinGroup = [
     cfg.ListOpt('tripleo_controllers',
                 default=['overcloud-controller-0'],
                 help='List of overcloud controller short host names'),
+    cfg.ListOpt('tripleo_computes',
+                default=['overcloud-novacompute-0'],
+                help='List of overcloud compute short host names'),
     cfg.StrOpt('tripleo_undercloud',
                default='undercloud',
                help='Undercloud short host name'
