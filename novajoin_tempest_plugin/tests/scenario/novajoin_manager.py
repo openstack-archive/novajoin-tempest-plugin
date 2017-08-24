@@ -242,6 +242,11 @@ class NovajoinScenarioTest(manager.ScenarioTest):
         # TODO(alee) Get from hiera nova::migration::libvirt::listen_address
         return "16514"
 
+    def verify_mysql_tls_connection(self, user, host_ip):
+        cmd = "sudo mysql --ssl -e \"SHOW SESSION STATUS LIKE 'Ssl_version';\""
+        result = self.execute_on_controller(user, host_ip, cmd)
+        self.assertTrue('TLS' in result)
+
     def execute_on_controller(self, user, hostip, target_cmd):
         keypair = '/home/stack/.ssh/id_rsa'
         cmd = ['ssh', '-i', keypair,
