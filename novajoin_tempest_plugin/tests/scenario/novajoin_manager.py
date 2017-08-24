@@ -200,7 +200,7 @@ class NovajoinScenarioTest(manager.ScenarioTest):
 
     def verify_overcloud_tls_connection(self, controller_ip, user, hostport):
         """Check TLS connection.  Failure will raise an exception"""
-        cmd = ('echo \'GET / HTTP/1.0\r\n\' | openssl s_client -quiet '
+        cmd = ('echo \'GET / HTTP/1.0\r\n\' | openssl s_client '
                '-connect {hostport} -tls1_2'.format(hostport=hostport))
         self.execute_on_controller(user, controller_ip, cmd)
 
