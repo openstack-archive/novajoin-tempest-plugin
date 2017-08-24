@@ -161,25 +161,25 @@ class IPABase(object):
 class IPAClient(IPABase):
 
     def find_host(self, hostname):
-        params = [unicode(hostname)]
+        params = [hostname.decode('UTF-8')]
         return self._call_ipa('host_find', *params)
 
     def show_host(self, hostname):
-        params = [unicode(hostname)]
+        params = [hostname.decode('UTF-8')]
         return self._call_ipa('host_show', *params)
 
     def find_service(self, service_principal):
-        params = [unicode(service_principal)]
+        params = [service_principal.decode('UTF-8')]
         service_args = {}
         return self._call_ipa('service_find', *params, **service_args)
 
     def show_service(self, service_principal):
-        params = [unicode(service_principal)]
+        params = [service_principal.decode('UTF-8')]
         service_args = {}
         return self._call_ipa('service_show', *params, **service_args)
 
     def get_service_cert(self, service_principal):
-        params = [unicode(service_principal)]
+        params = [service_principal.decode('UTF-8')]
         service_args = {}
         result = self._call_ipa('service_find', *params, **service_args)
         serviceresult = result['result'][0]
@@ -190,7 +190,7 @@ class IPAClient(IPABase):
 
     def service_managed_by_host(self, service_principal, host):
         """Return True if service is managed by specified host"""
-        params = [unicode(service_principal)]
+        params = [service_principal.decode('UTF-8')]
         service_args = {}
         try:
             result = self._call_ipa('service_show', *params, **service_args)
