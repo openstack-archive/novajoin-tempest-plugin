@@ -29,6 +29,10 @@ TLS_EXCEPTIONS = [
     ("horizon", "80")
 ]
 
+NOVADB_USER = 'nova::db::mysql::user'
+NOVADB_HOST = 'nova::db::mysql::host'
+NOVADB_PASSWORD = 'nova::db::mysql::password'
+
 
 class TripleOTLSTest(novajoin_manager.NovajoinScenarioTest):
 
@@ -108,8 +112,10 @@ class TripleOTLSTest(novajoin_manager.NovajoinScenarioTest):
     def test_rabbitmq_tls_connection(self):
         for controller in CONF.novajoin.tripleo_controllers:
             controller_ip = self.get_overcloud_server_ip(controller)
-            rabbitmq_host = self.get_rabbitmq_host('heat-admin', controller_ip)
-            rabbitmq_port = self.get_rabbitmq_port('heat-admin', controller_ip)
+            rabbitmq_host = self.get_rabbitmq_host('heat-admin',
+                                                   controller_ip)
+            rabbitmq_port = self.get_rabbitmq_port('heat-admin',
+                                                   controller_ip)
             self.verify_overcloud_tls_connection(
                 controller_ip=controller_ip,
                 user='heat-admin',
@@ -134,3 +140,39 @@ class TripleOTLSTest(novajoin_manager.NovajoinScenarioTest):
         for controller in CONF.novajoin.tripleo_controllers:
             controller_ip = self.get_overcloud_server_ip(controller)
             self.verify_mysql_tls_connection('heat-admin', controller_ip)
+
+    def test_mysql_nova_connection_with_ssl(self):
+        for controller in CONF.novajoin.tripleo_controllers:
+            controller_ip = self.get_overcloud_server_ip(controller)
+            dbuser = self.get_hiera('heat-admin',
+                                    controller_ip,
+                                    NOVADB_USER)
+            dbhost = self.get_hiera('heat-admin',
+                                    controller_ip,
+                                    NOVADB_HOST)
+            dbpassword = self.get_hiera('heat-admin',
+                                        controller_ip,
+                                        NOVADB_PASSWORD)
+            self.verify_mysql_access_with_ssl('heat-admin',
+                                              controller_ip,
+                                              dbuser,
+                                              dbhost,
+                                              dbpassword)
+
+    def test_mysql_nova_connection_without_ssl(self):
+        for controller in CONF.novajoin.tripleo_controllers:
+            controller_ip = self.get_overcloud_server_ip(controller)
+            dbuser = self.get_hiera('heat-admin',
+                                    controller_ip,
+                                    NOVADB_USER)
+            dbhost = self.get_hiera('heat-admin',
+                                    controller_ip,
+                                    NOVADB_HOST)
+            dbpassword = self.get_hiera('heat-admin',
+                                        controller_ip,
+                                        NOVADB_PASSWORD)
+            self.verify_mysql_access_without_ssl('heat-admin',
+                                                 controller_ip,
+                                                 dbuser,
+                                                 dbhost,
+                                                 dbpassword)

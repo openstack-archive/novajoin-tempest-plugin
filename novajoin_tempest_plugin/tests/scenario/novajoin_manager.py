@@ -231,21 +231,53 @@ class NovajoinScenarioTest(manager.ScenarioTest):
             return self.execute_on_controller(user, controller_ip, cmd)
 
     def get_rabbitmq_host(self, user, controller_ip):
-        cmd = 'sudo hiera -c /etc/puppet/hiera.yaml rabbitmq::ssl_interface'
-        return self.execute_on_controller(user, controller_ip, cmd).rstrip()
+        return self.get_hiera(user, controller_ip, 'rabbitmq::ssl_interface')
 
     def get_rabbitmq_port(self, user, controller_ip):
-        cmd = 'sudo hiera -c /etc/puppet/hiera.yaml rabbitmq::ssl_port'
-        return self.execute_on_controller(user, controller_ip, cmd).rstrip()
+        return self.get_hiera(user, controller_ip, 'rabbitmq::ssl_port')
 
     def get_libvirt_port(self, user, compute_ip):
         # TODO(alee) Get from hiera nova::migration::libvirt::listen_address
         return "16514"
 
+    def get_hiera(self, user, host_ip, parameter):
+        cmd = ('sudo hiera -c /etc/puppet/hiera.yaml '
+               '{parameter}'.format(parameter=parameter))
+        return self.execute_on_controller(user, host_ip, cmd).rstrip()
+
     def verify_mysql_tls_connection(self, user, host_ip):
         cmd = "sudo mysql --ssl -e \"SHOW SESSION STATUS LIKE 'Ssl_version';\""
         result = self.execute_on_controller(user, host_ip, cmd)
         self.assertTrue('TLS' in result)
+
+    def verify_mysql_access_with_ssl(self,
+                                     user,
+                                     host_ip,
+                                     dbuser,
+                                     dbhost,
+                                     dbpassword):
+        sql = "SHOW SESSION STATUS LIKE \'Ssl_version\';"
+        cmd = ('sudo mysql --ssl -u {user} -h {host} --password={password} '
+               '-e \"{sql}\"'.format(user=dbuser,
+                                     host=dbhost,
+                                     password=dbpassword,
+                                     sql=sql))
+        result = self.execute_on_controller(user, host_ip, cmd)
+        self.assertTrue('TLS' in result)
+
+    def verify_mysql_access_without_ssl(self,
+                                        user,
+                                        host_ip,
+                                        dbuser,
+                                        dbhost,
+                                        dbpassword):
+        cmd = ('sudo mysql -u {user} -h {host} --password={password} '
+               '-e \"SHOW DATABASES;\"'.format(user=dbuser,
+                                               host=dbhost,
+                                               password=dbpassword))
+        self.assertRaises(subprocess.CalledProcessError,
+                          self.execute_on_controller,
+                          user, host_ip, cmd)
 
     def execute_on_controller(self, user, hostip, target_cmd):
         keypair = '/home/stack/.ssh/id_rsa'
