@@ -9,7 +9,7 @@ these tests into tempest.
 Dependencies
 ------------
 The novajoin_tempest_plugin tests the novajoin API, which requires the
-existence of an IPA server. 
+existence of an IPA server.
 
 Developers
 ----------
