@@ -72,13 +72,10 @@ class ScenarioTest(tempest.test.BaseTestCase):
         cls.security_group_rules_client = (
             cls.os_admin.security_group_rules_client)
 
-        if CONF.volume_feature_enabled.api_v2:
-            cls.volumes_client = cls.os_admin.volumes_v2_client
-            cls.snapshots_client = cls.os_admin.snapshots_v2_client
-
-        if CONF.volume_feature_enabled.api_v1:
-            cls.volumes_client = cls.os_admin.volumes_client
-            cls.snapshots_client = cls.os_admin.snapshots_client
+        if CONF.volume_feature_enabled.api_v2 or
+           CONF.volume_feature_enabled.api_v3:
+            cls.volumes_client = cls.os_admin.volumes_client_latest
+            cls.snapshots_client = cls.os_admin.snapshots_client_latest
 
     # ## Test functions library
     #
