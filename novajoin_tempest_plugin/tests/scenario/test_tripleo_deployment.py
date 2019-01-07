@@ -11,7 +11,6 @@
 # WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 # License for the specific language governing permissions and limitations
 # under the License.
-import ast
 
 from novajoin_tempest_plugin.tests.scenario import novajoin_manager
 from oslo_log import log as logging
@@ -80,8 +79,7 @@ class TripleOTest(novajoin_manager.NovajoinScenarioTest):
         for host in hosts:
             metadata = self.servers_client.list_server_metadata(
                 self.get_server_id(host))['metadata']
-            services = metadata['compact_services']
-            compact_services = ast.literal_eval(services)
+            compact_services = self.get_compact_services(metadata)
             print(compact_services)
             self.verify_compact_services(
                 services=compact_services,
