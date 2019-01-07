@@ -16,12 +16,11 @@
 import os
 import time
 import uuid
-
 try:
     from gssapi.exceptions import GSSError
     from ipalib import api
     from ipalib import errors
-    from ipapython.ipautil import kinit_keytab
+    from ipalib.install.kinit import kinit_keytab
     ipalib_imported = True
 except ImportError:
     # ipalib/ipapython are not available in PyPy yet, don't make it

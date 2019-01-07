@@ -132,14 +132,12 @@ class TripleOTLSTest(novajoin_manager.NovajoinScenarioTest):
             self.verify_overcloud_tls_connection(
                 controller_ip=compute_ip,
                 user='heat-admin',
-                hostport="{host}:{port}".format(host=compute_ip,
-                                                port=libvirt_port)
+                hostport="{host}.internalapi.{domain}:{port}".format(
+                    host=compute,
+                    domain=self.ipa_client.domain,
+                    port=libvirt_port
+                )
             )
-
-    def test_mysql_tls_setup(self):
-        for controller in CONF.novajoin.tripleo_controllers:
-            controller_ip = self.get_overcloud_server_ip(controller)
-            self.verify_mysql_tls_connection('heat-admin', controller_ip)
 
     def test_mysql_nova_connection_with_ssl(self):
         for controller in CONF.novajoin.tripleo_controllers:

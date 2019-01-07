@@ -80,8 +80,7 @@ class TripleOTest(novajoin_manager.NovajoinScenarioTest):
         for host in hosts:
             metadata = self.servers_client.list_server_metadata(
                 self.get_server_id(host))['metadata']
-            services = metadata['compact_services']
-            compact_services = ast.literal_eval(services)
+            compact_services = self.get_compact_services(metadata)
             print(compact_services)
             self.verify_compact_services(
                 services=compact_services,

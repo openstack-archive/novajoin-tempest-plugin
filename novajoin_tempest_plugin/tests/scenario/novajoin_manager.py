@@ -12,6 +12,8 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
+import json
+import six
 import subprocess
 import time
 
@@ -166,6 +168,19 @@ class NovajoinScenarioTest(manager.ScenarioTest):
         result = self.ipa_client.show_cert(serial)['result']
         self.assertTrue(result['revoked'])
 
+    def get_compact_services(self, metadata):
+        # compact key-per-service
+        compact_services = {key.split('_', 2)[-1]: json.loads(value)
+                            for key, value in six.iteritems(metadata)
+                            if key.startswith('compact_service_')}
+        if compact_services:
+            return compact_services
+        # legacy compact json format
+        if 'compact_services' in metadata:
+            return json.loads(metadata['compact_services'])
+
+        return None
+
     def verify_compact_services(self, services, host, verify_certs=False):
         for (service, networks) in services.items():
             for network in networks:
@@ -176,21 +191,30 @@ class NovajoinScenarioTest(manager.ScenarioTest):
                 self.verify_service(service, subhost, verify_certs)
 
     def verify_service(self, service, host, verify_certs=False):
+        LOG.debug("verifying: %s %s ", service, host)
         self.verify_host_registered_with_ipa(host, add_domain=False)
         self.verify_service_created(service, host)
         self.verify_service_managed_by_host(service, host)
         if verify_certs:
             self.verify_service_cert(service, host)
+        LOG.debug("verified: %s %s ", service, host)
 
     def verify_service_cert(self, service, host):
         LOG.debug("Verifying cert for %s %s", service, host)
         serial = self.get_service_cert(service, host)
-        if (service == 'mysql' and host ==
-                'overcloud-controller-0.internalapi.{domain}'.format(
-                domain=self.ipa_client.domain)):
+
+        internal_controllers = ['{controller}.internalapi.{domain}'.format(
+            controller=ctl, domain=self.ipa_client.domain) for ctl in
+            CONF.novajoin.tripleo_controllers]
+
+        # TODO(alee) Need to understand why mysql is different
+        if service == 'mysql' and host in internal_controllers:
             pass
         else:
+            if serial is None:
+                LOG.error("Cert NOT verified for %s %s", service, host)
             self.assertTrue(serial is not None)
+        LOG.debug("Cert verified for %s %s", service, host)
 
     def verify_managed_services(self, services, verify_certs=False):
         for principal in services:
