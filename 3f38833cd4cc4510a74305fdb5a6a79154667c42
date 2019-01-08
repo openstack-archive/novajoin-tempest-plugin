@@ -1,0 +1,9 @@
+Code-Review+2: Juan Antonio Osorio Robles <jaosorior@redhat.com>
+Code-Review+1: Grzegorz Grasza <xek@redhat.com>
+Workflow+1: Rob Crittenden <rcritten@redhat.com>
+Verified+2: Zuul
+Submitted-by: Zuul
+Submitted-at: Tue, 08 Jan 2019 16:04:16 +0000
+Reviewed-on: https://review.openstack.org/629054
+Project: openstack/novajoin-tempest-plugin
+Branch: refs/heads/master
