@@ -20,14 +20,7 @@ from tempest import config
 CONF = config.CONF
 LOG = logging.getLogger(__name__)
 
-TLS_EXCEPTIONS = [
-    ("nova_novncproxy", "6080"),
-    ("redis", "6379"),
-    ("nova_metadata", "8775"),
-    ("mysql", "3306"),
-    ("haproxy.stats", "1993"),
-    ("horizon", "80")
-]
+TLS_EXCEPTIONS = []
 
 NOVADB_USER = 'nova::db::mysql::user'
 NOVADB_HOST = 'nova::db::mysql::host'
@@ -90,6 +83,7 @@ class TripleOTLSTest(novajoin_manager.NovajoinScenarioTest):
                 for param in params:
                     print(param)
                     hostport = self.get_hostport(param)
+                    host_ip = re.search('(\S*):\d*', hostport).group(1)
                     port = re.search('\S*:(\d*)', hostport).group(1)
                     if "ssl" not in param:
                         if (tag, port) in TLS_EXCEPTIONS:
@@ -97,6 +91,21 @@ class TripleOTLSTest(novajoin_manager.NovajoinScenarioTest):
                         continue
 
                     self.assertTrue("ssl" in param)
+
+                    if tag == 'haproxy.stats':
+                        # haproxy.stats is supposed to be accessible
+                        # only to localhost - ie. the controller that
+                        # contains the vip
+
+                        vip_node = self.get_pcs_node(
+                            host_ip, controller_ip, 'heat-admin', hostport)
+                        print("vip_node={vip_node}".format(vip_node=vip_node))
+
+                        if controller != vip_node:
+                            print("Stats VIP not on controller: {ctl}".format(
+                                ctl=controller))
+                            continue
+
                     self.verify_overcloud_tls_connection(
                         controller_ip=controller_ip,
                         user='heat-admin',

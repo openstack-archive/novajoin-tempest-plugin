@@ -77,13 +77,15 @@ class TripleOTest(novajoin_manager.NovajoinScenarioTest):
         hosts = list(CONF.novajoin.tripleo_controllers)
         hosts.extend(CONF.novajoin.tripleo_computes)
         for host in hosts:
+            host_ip = self.get_overcloud_server_ip(host)
             metadata = self.servers_client.list_server_metadata(
                 self.get_server_id(host))['metadata']
             compact_services = self.get_compact_services(metadata)
-            print(compact_services)
+            LOG.debug(compact_services)
             self.verify_compact_services(
                 services=compact_services,
                 host=host,
+                host_ip=host_ip,
                 verify_certs=True
             )
 
@@ -93,7 +95,7 @@ class TripleOTest(novajoin_manager.NovajoinScenarioTest):
                 self.get_server_id(host))['metadata']
             managed_services = [metadata[key] for key in metadata.keys()
                                 if key.startswith('managed_service_')]
-            print(managed_services)
+            LOG.debug(managed_services)
             self.verify_managed_services(
                 services=managed_services,
                 verify_certs=True)

@@ -181,26 +181,38 @@ class NovajoinScenarioTest(manager.ScenarioTest):
 
         return None
 
-    def verify_compact_services(self, services, host, verify_certs=False):
+    def verify_compact_services(self, services, host,
+                                host_ip, verify_certs=False):
         for (service, networks) in services.items():
             for network in networks:
                 subhost = '{host}.{network}.{domain}'.format(
                     host=host, network=network, domain=self.ipa_client.domain
                 )
                 LOG.debug("SUBHOST: %s", subhost)
-                self.verify_service(service, subhost, verify_certs)
+                self.verify_service(service, subhost, host_ip,
+                                    verify_certs, network)
 
-    def verify_service(self, service, host, verify_certs=False):
-        LOG.debug("verifying: %s %s ", service, host)
+    def verify_service(self, service, host, host_ip,
+                       verify_certs=False, network=False):
+        LOG.debug("verifying: %s %s", service, host)
+        if network:
+            LOG.debug("verifying network %s", network)
         self.verify_host_registered_with_ipa(host, add_domain=False)
         self.verify_service_created(service, host)
         self.verify_service_managed_by_host(service, host)
         if verify_certs:
-            self.verify_service_cert(service, host)
+            self.verify_service_cert(service, host, host_ip, network)
         LOG.debug("verified: %s %s ", service, host)
 
-    def verify_service_cert(self, service, host):
+    def verify_service_cert(self, service, host, host_ip, network=None):
         LOG.debug("Verifying cert for %s %s", service, host)
+
+        if not self.network_defined(host, network, host_ip):
+            # if the network is not enabled for this host
+            # no cert will be requested
+            LOG.debug("No network defined for {network} on {host}.".format(
+                network=network, host=host))
+            return
         serial = self.get_service_cert(service, host)
 
         internal_controllers = ['{controller}.internalapi.{domain}'.format(
@@ -216,6 +228,17 @@ class NovajoinScenarioTest(manager.ScenarioTest):
             self.assertTrue(serial is not None)
         LOG.debug("Cert verified for %s %s", service, host)
 
+    def network_defined(self, host, network, host_ip):
+        """Confirm network is defined on host."""
+        if network == 'internalapi':
+            network = 'internal_api'
+        if network == 'storagemgmt':
+            network = 'storage_mgmt'
+        cmd = ('sudo hiera -c /etc/puppet/hiera.yaml fqdn_{network}'.format(
+            network=network))
+        result = self.execute_on_controller('heat-admin', host_ip, cmd)
+        return result.strip() != 'nil'
+
     def verify_managed_services(self, services, verify_certs=False):
         for principal in services:
             service = principal.split('/', 1)[0]
@@ -227,6 +250,12 @@ class NovajoinScenarioTest(manager.ScenarioTest):
         cmd = ('echo \'GET / HTTP/1.0\r\n\' | openssl s_client '
                '-connect {hostport} -tls1_2'.format(hostport=hostport))
         self.execute_on_controller(user, controller_ip, cmd)
+
+    def get_pcs_node(self, vip, controller_ip, user, hostport):
+        """Get controller node that hosts vip"""
+        cmd = ('sudo pcs status |grep {vip}| '
+               'sed \'s/.*Started \(.*\)/\\1/\''.format(vip=vip))
+        return self.execute_on_controller(user, controller_ip, cmd).strip()
 
     def get_server_id(self, name):
         params = {'all_tenants': '', 'name': name}
