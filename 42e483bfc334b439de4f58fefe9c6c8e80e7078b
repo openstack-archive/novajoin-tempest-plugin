@@ -1,0 +1,9 @@
+Code-Review+1: Sagi Shnaidman <sshnaidm@redhat.com>
+Code-Review+2: Grzegorz Grasza <xek@redhat.com>
+Workflow+1: Juan Antonio Osorio Robles <jaosorior@redhat.com>
+Verified+2: Zuul
+Submitted-by: Zuul
+Submitted-at: Thu, 28 Feb 2019 11:12:30 +0000
+Reviewed-on: https://review.openstack.org/639977
+Project: openstack/novajoin-tempest-plugin
+Branch: refs/heads/master
