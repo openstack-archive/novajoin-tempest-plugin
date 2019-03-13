@@ -12,6 +12,7 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
+import functools
 import json
 import six
 import subprocess
@@ -55,24 +56,31 @@ class NovajoinScenarioTest(manager.ScenarioTest):
         super(NovajoinScenarioTest, cls).setup_clients()
         cls.ipa_client = ipa_client.IPAClient()
 
+    def retry_with_timeout(func):
+        @functools.wraps(func)
+        def wrapper_retry_with_timeout(*args, **kwargs):
+            start = int(time.time())
+            timeout = 300
+            result = func(*args, **kwargs)
+            while not result and (int(time.time()) - start < timeout):
+                time.sleep(30)
+                result = func(*args, **kwargs)
+            assert result
+        return wrapper_retry_with_timeout
+
+    @retry_with_timeout
     def verify_host_registered_with_ipa(self, host, add_domain=True):
         if add_domain:
             host = self.add_domain_to_host(host)
         result = self.ipa_client.find_host(host)
-        self.assertTrue(result['count'] > 0)
+        return result['count'] > 0
 
+    @retry_with_timeout
     def verify_host_not_registered_with_ipa(self, host, add_domain=True):
         if add_domain:
             host = self.add_domain_to_host(host)
         result = self.ipa_client.find_host(host)
-        start = int(time.time())
-        host_count = result['count']
-        timeout = 300
-        while (host_count > 0) and (int(time.time()) - start < timeout):
-            time.sleep(30)
-            result = self.ipa_client.find_host(host)
-            host_count = result['count']
-        self.assertFalse(result['count'] > 0)
+        return result['count'] == 0
 
     def add_domain_to_host(self, host):
         host = '{host}.{domain}'.format(
@@ -80,34 +88,30 @@ class NovajoinScenarioTest(manager.ScenarioTest):
             domain=self.ipa_client.domain)
         return host
 
+    @retry_with_timeout
     def verify_host_has_keytab(self, host, add_domain=True):
         if add_domain:
             host = self.add_domain_to_host(host)
         result = self.ipa_client.show_host(host)['result']
-        start = int(time.time())
-        keytab_status = result['has_keytab']
-        timeout = 300
-        while not keytab_status and (int(time.time()) - start < timeout):
-            time.sleep(30)
-            result = self.ipa_client.show_host(host)['result']
-            keytab_status = result['has_keytab']
-        self.assertTrue(keytab_status)
+        return result['has_keytab']
 
+    @retry_with_timeout
     def verify_service_created(self, service, host):
         service_principal = self.get_service_principal(host, service)
         result = self.ipa_client.find_service(service_principal)
-        self.assertTrue(result['count'] > 0)
+        return result['count'] > 0
 
+    @retry_with_timeout
     def verify_service_managed_by_host(self, service, host):
         service_principal = self.get_service_principal(host, service)
-        result = self.ipa_client.service_managed_by_host(service_principal,
-                                                         host)
-        self.assertTrue(result)
+        return self.ipa_client.service_managed_by_host(service_principal,
+                                                       host)
 
+    @retry_with_timeout
     def verify_service_deleted(self, service, host):
         service_principal = self.get_service_principal(host, service)
         result = self.ipa_client.find_service(service_principal)
-        self.assertFalse(result['count'] > 0)
+        return result['count'] == 0
 
     def verify_compact_services_deleted(self, services, host):
         for (service, networks) in services.items():
@@ -115,18 +119,13 @@ class NovajoinScenarioTest(manager.ScenarioTest):
                 subhost = '{host}.{network}.{domain}'.format(
                     host=host, network=network, domain=self.ipa_client.domain
                 )
-                service_principal = self.get_service_principal(
-                    subhost, service)
-                result = self.ipa_client.find_service(service_principal)
-                self.assertFalse(result['count'] > 0)
+                self.verify_service_deleted(service, subhost)
 
     def verify_managed_services_deleted(self, services):
         for principal in services:
             service = principal.split('/', 1)[0]
             host = principal.split('/', 1)[1]
-            service_principal = self.get_service_principal(host, service)
-            result = self.ipa_client.find_service(service_principal)
-            self.assertFalse(result['count'] > 0)
+            self.verify_service_deleted(service, host)
 
     def get_service_cert(self, service, host):
         service_principal = self.get_service_principal(host, service)
@@ -163,10 +162,11 @@ class NovajoinScenarioTest(manager.ScenarioTest):
         result = self.execute_on_controller(user, hostip, cmd)
         self.assertTrue('track: yes' in result)
 
+    @retry_with_timeout
     def verify_cert_revoked(self, serial):
         # verify that the given certificate has been revoked
         result = self.ipa_client.show_cert(serial)['result']
-        self.assertTrue(result['revoked'])
+        return result['revoked']
 
     def get_compact_services(self, metadata):
         # compact key-per-service

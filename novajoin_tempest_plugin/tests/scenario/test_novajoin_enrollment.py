@@ -23,8 +23,24 @@ import ast
 
 CONF = config.CONF
 LOG = logging.getLogger(__name__)
-USER = 'cloud-user'
+USER = CONF.validation.image_ssh_user
 NETWORK = 'ctlplane'
+
+FLAVORS = {
+    'baremetal': {'ram': 4096,
+                  'vcpus': 3,
+                  'disk': 30,
+                  'specs': {
+                      "capabilities:boot_option": "local",
+                      "capabilities:profile": "ironic",
+                      "resources:CUSTOM_IRONIC": '1'}},
+    'vm': {'ram': 4096,
+           'vcpus': 1,
+           'disk': 40,
+           'specs': {
+               "capabilities:boot_option": "local",
+               "capabilities:profile": "compute"}}
+}
 
 
 class ServerTest(novajoin_manager.NovajoinScenarioTest):
@@ -44,20 +60,16 @@ class ServerTest(novajoin_manager.NovajoinScenarioTest):
     def resource_setup(cls):
         super(ServerTest, cls).resource_setup()
 
-    def _create_flavor(self, flavor_name):
-        specs = {"capabilities:boot_option": "local",
-                 "capabilities:profile": "compute"}
+    def _create_flavor(self, flavor_name, tag):
         flv_id = data_utils.rand_int_id(start=1000)
-        ram = 4096
-        vcpus = 1
-        disk = 40
+        flavor = FLAVORS[tag]
         self.flavors_client.create_flavor(name=flavor_name,
-                                          ram=ram,
-                                          vcpus=vcpus,
-                                          disk=disk,
+                                          ram=flavor['ram'],
+                                          vcpus=flavor['vcpus'],
+                                          disk=flavor['disk'],
                                           id=flv_id)['flavor']
         self.flavors_client.set_flavor_extra_spec(flv_id,
-                                                  **specs)
+                                                  **flavor['specs'])
         return flv_id
 
     def _create_image(self, name, properties={}):
@@ -71,11 +83,13 @@ class ServerTest(novajoin_manager.NovajoinScenarioTest):
 
     def _verify_host_and_services_are_enrolled(
             self, server_name, server_id, keypair):
+        server_details = self.servers_client.show_server(server_id)['server']
+        ip = self.get_server_ip(server_details)
+
         self.verify_host_registered_with_ipa(server_name)
         self.verify_host_has_keytab(server_name)
 
         # Verify compact services are created
-
         metadata = self.servers_client.list_server_metadata(server_id
                                                             )['metadata']
         services = metadata['compact_services']
@@ -83,6 +97,7 @@ class ServerTest(novajoin_manager.NovajoinScenarioTest):
         self.verify_compact_services(
             services=self.compact_services,
             host=server_name,
+            host_ip=ip
         )
 
         # Verify managed services are created
@@ -91,9 +106,6 @@ class ServerTest(novajoin_manager.NovajoinScenarioTest):
         self.verify_managed_services(self.managed_services)
 
         # Verify instance created above is ipaclient
-        server_details = self.servers_client.show_server(server_id
-                                                         )['server']
-        ip = self.get_server_ip(server_details)
         self.verify_host_is_ipaclient(ip, USER, keypair)
 
     def _verify_host_and_services_are_not_enrolled(self, server_name):
@@ -109,7 +121,9 @@ class ServerTest(novajoin_manager.NovajoinScenarioTest):
         networks = self.networks_client.list_networks(name=NETWORK)
         net_id = networks['networks'][0]['id']
         flavor_name = data_utils.rand_name('flv_metadata_in_instance')
-        flavor_id = self._create_flavor(flavor_name)
+        flavor_id = self._create_flavor(flavor_name,
+                                        CONF.novajoin.flavor_tag)
+
         image_name = data_utils.rand_name('img_metadata_in_instance')
         image_id = self._create_image(image_name)
         keypair = self.create_keypair()
@@ -136,14 +150,12 @@ class ServerTest(novajoin_manager.NovajoinScenarioTest):
         networks = self.networks_client.list_networks(name=NETWORK)
         net_id = networks['networks'][0]['id']
         flavor_name = data_utils.rand_name('flv_metadata_in_image')
-        flavor_id = self._create_flavor(flavor_name)
-        image_name = data_utils.rand_name('metadata_in_image')
+        flavor_id = self._create_flavor(flavor_name,
+                                        CONF.novajoin.flavor_tag)
+        image_name = data_utils.rand_name('img_metadata_in_image')
         properties = {"ipa_enroll": "True"}
         image_id = self._create_image(image_name, properties)
         keypair = self.create_keypair()
-        f = open('/tmp/priv.key', 'w')
-        f.write(keypair['private_key'])
-        f.close()
         instance_name = data_utils.rand_name("novajoin")
         metadata = {"compact_services":
                     "{\"HTTP\": [\"ctlplane\", \"internalapi\"]}",
