@@ -25,6 +25,9 @@ novajoin_group = cfg.OptGroup(
     title="Novajoin test plugin settings")
 
 NovajoinGroup = [
+    cfg.StrOpt('flavor_tag',
+               default='vm',
+               help='Flavor tag to use in novajoin enrollment tests'),
     cfg.StrOpt('keytab',
                default='/home/stack/novajoin.keytab',
                help='Keytab to connect to IPA as the novajoin user'),
