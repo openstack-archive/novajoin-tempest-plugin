@@ -131,7 +131,7 @@ class ServerTest(novajoin_manager.NovajoinScenarioTest):
         metadata = {"ipa_enroll": "True",
                     "compact_services":
                     "{\"HTTP\": [\"ctlplane\", \"internalapi\"]}",
-                    "managed_service_test": "novajoin/test.example.com"}
+                    "managed_service_test": "mysql/instancetest.example.com"}
         server = self.create_server(name=instance_name,
                                     image_id=image_id,
                                     flavor=flavor_id,
@@ -159,7 +159,7 @@ class ServerTest(novajoin_manager.NovajoinScenarioTest):
         instance_name = data_utils.rand_name("novajoin")
         metadata = {"compact_services":
                     "{\"HTTP\": [\"ctlplane\", \"internalapi\"]}",
-                    "managed_service_test": "novajoin/test.example.com"}
+                    "managed_service_test": "mysql/imagetest.example.com"}
         server = self.create_server(name=instance_name,
                                     image_id=image_id,
                                     flavor=flavor_id,
