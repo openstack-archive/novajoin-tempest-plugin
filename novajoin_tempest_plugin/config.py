@@ -13,6 +13,8 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+import os
+
 from oslo_config import cfg
 
 service_option = cfg.BoolOpt("novajoin",
@@ -29,7 +31,7 @@ NovajoinGroup = [
                default='vm',
                help='Flavor tag to use in novajoin enrollment tests'),
     cfg.StrOpt('keytab',
-               default='/home/stack/novajoin.keytab',
+               default=os.path.expanduser('~/novajoin.keytab'),
                help='Keytab to connect to IPA as the novajoin user'),
     cfg.StrOpt('tripleo',
                default='True',

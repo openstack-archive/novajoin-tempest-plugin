@@ -53,7 +53,7 @@ class IPABase(object):
 
         self.ccache = "MEMORY:" + str(uuid.uuid4())
         os.environ['KRB5CCNAME'] = self.ccache
-        os.environ['KRB5_CLIENT_KTNAME'] = '/home/stack/krb5.keytab'
+        os.environ['KRB5_CLIENT_KTNAME'] = self.keytab
         if self._ipa_client_configured() and not api.isdone('finalize'):
             api.bootstrap(context='novajoin')
             api.finalize()
