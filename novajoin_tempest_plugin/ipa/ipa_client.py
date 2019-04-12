@@ -51,9 +51,12 @@ class IPABase(object):
         except cfg.NoSuchOptError:
             self.keytab = '/etc/novajoin/krb5.keytab'
 
+        with open(self.keytab):
+            pass  # Throw a nicer exception if krb5.keytab does not exist
+
         self.ccache = "MEMORY:" + str(uuid.uuid4())
         os.environ['KRB5CCNAME'] = self.ccache
-        os.environ['KRB5_CLIENT_KTNAME'] = '/home/stack/krb5.keytab'
+        os.environ['KRB5_CLIENT_KTNAME'] = self.keytab
         if self._ipa_client_configured() and not api.isdone('finalize'):
             api.bootstrap(context='novajoin')
             api.finalize()
